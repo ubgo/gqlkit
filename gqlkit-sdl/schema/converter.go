@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
@@ -379,4 +380,21 @@ func isBuiltInDirective(name string) bool {
 // with 0644 permissions. This is the final step in the introspection-to-SDL pipeline.
 func SaveToFile(sdl string, filepath string) error {
 	return os.WriteFile(filepath, []byte(sdl), 0644)
+}
+
+// SaveAsJSON marshals the introspection schema as pretty-printed JSON and
+// writes it to the given file path.
+func SaveAsJSON(schema *IntrospectionSchema, filepath string) error {
+	wrapper := IntrospectionResponse{
+		Data: IntrospectionData{
+			Schema: *schema,
+		},
+	}
+
+	data, err := json.MarshalIndent(wrapper, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	return os.WriteFile(filepath, data, 0644)
 }

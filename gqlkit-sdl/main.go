@@ -42,6 +42,7 @@ func fetchCmd() *cobra.Command {
 		output  string
 		headers []string
 		debug   bool
+		format  string
 	)
 
 	cmd := &cobra.Command{
@@ -54,7 +55,8 @@ Examples:
   gqlkit-sdl fetch --url https://graphql.anilist.co --output my-schema.graphql
   gqlkit-sdl fetch --url https://graphql.anilist.co -H "Authorization: Bearer token"
   gqlkit-sdl fetch --url https://graphql.anilist.co -H "Authorization: Bearer token" -H "Origin: https://example.com"
-  gqlkit-sdl fetch --url https://graphql.anilist.co --debug`,
+  gqlkit-sdl fetch --url https://graphql.anilist.co --debug
+  gqlkit-sdl fetch --url https://graphql.anilist.co -f json -o schema.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts := &schema.FetchOptions{
 				Headers: make(map[string]string),
@@ -80,12 +82,19 @@ Examples:
 				return nil
 			}
 
-			fmt.Println("Converting to SDL format...")
-			sdl := schema.ConvertToSDL(introspectionSchema)
-
-			fmt.Printf("Saving to %s...\n", output)
-			if err := schema.SaveToFile(sdl, output); err != nil {
-				return fmt.Errorf("saving file: %w", err)
+			switch format {
+			case "json":
+				fmt.Printf("Saving JSON to %s...\n", output)
+				if err := schema.SaveAsJSON(introspectionSchema, output); err != nil {
+					return fmt.Errorf("saving JSON file: %w", err)
+				}
+			default:
+				fmt.Println("Converting to SDL format...")
+				sdl := schema.ConvertToSDL(introspectionSchema)
+				fmt.Printf("Saving to %s...\n", output)
+				if err := schema.SaveToFile(sdl, output); err != nil {
+					return fmt.Errorf("saving file: %w", err)
+				}
 			}
 
 			fmt.Println("Done! Schema saved successfully.")
@@ -97,6 +106,7 @@ Examples:
 	cmd.Flags().StringVarP(&output, "output", "o", "schema.graphql", "Output file path")
 	cmd.Flags().StringArrayVarP(&headers, "header", "H", nil, `HTTP header in "Key:Value" format (repeatable)`)
 	cmd.Flags().BoolVar(&debug, "debug", false, "Print the curl command for debugging")
+	cmd.Flags().StringVarP(&format, "format", "f", "graphql", `Output format: "graphql" (SDL) or "json"`)
 	cmd.MarkFlagRequired("url")
 
 	return cmd
