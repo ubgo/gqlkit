@@ -35,11 +35,13 @@ gqlkit-sdl <command> [flags]
 
 ### Flags (fetch)
 
-| Flag              | Required | Default          | Description                                  |
-|-------------------|----------|------------------|----------------------------------------------|
-| `--url`           | Yes      | —                | GraphQL endpoint URL                         |
-| `--output`        | No       | `schema.graphql` | Output file path                             |
-| `-H`, `--header`  | No       | —                | HTTP header in `Key:Value` format (repeatable) |
+| Flag              | Required | Default          | Description                                        |
+|-------------------|----------|------------------|----------------------------------------------------|
+| `--url`           | Yes      | —                | GraphQL endpoint URL                               |
+| `-o`, `--output`  | No       | `schema.graphql` | Output file path                                   |
+| `-f`, `--format`  | No       | `graphql`        | Output format: `graphql` (SDL) or `json`           |
+| `-H`, `--header`  | No       | —                | HTTP header in `Key:Value` format (repeatable)     |
+| `--debug`         | No       | —                | Print the curl command for debugging               |
 
 ### Examples
 
@@ -62,6 +64,9 @@ gqlkit-sdl fetch --url "http://localhost:2310/sa/query_playground" \
   -H "Authorization: Bearer your-token" \
   -H "Referer: http://localhost:2310/sa/gql?pkey=1234" \
   -H "Origin: http://localhost:2310"
+
+# Save schema as JSON
+gqlkit-sdl fetch --url "https://graphql.anilist.co" -f json -o schema.json
 ```
 
 ## Go API
@@ -84,4 +89,7 @@ if err != nil {
 
 sdl := schema.ConvertToSDL(introspectionSchema)
 err = schema.SaveToFile(sdl, "schema.graphql")
+
+// Or save as JSON
+err = schema.SaveAsJSON(introspectionSchema, "schema.json")
 ```
