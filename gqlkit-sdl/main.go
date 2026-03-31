@@ -38,11 +38,16 @@ func versionCmd() *cobra.Command {
 
 func fetchCmd() *cobra.Command {
 	var (
-		url     string
-		output  string
-		headers []string
-		debug   bool
-		format  string
+		url              string
+		output           string
+		headers          []string
+		debug            bool
+		format           string
+		onlyQueries      []string
+		onlyMutations    []string
+		excludeQueries   []string
+		excludeMutations []string
+		removeUnused     bool
 	)
 
 	cmd := &cobra.Command{
@@ -50,13 +55,26 @@ func fetchCmd() *cobra.Command {
 		Short: "Fetch GraphQL schema and save as SDL",
 		Long: `Fetch a GraphQL schema via introspection and save it as SDL.
 
+Filter flags accept exact names or regex patterns (comma-separated).
+Any value with regex metacharacters (. * + ? etc.) is treated as a regex.
+
 Examples:
   gqlkit-sdl fetch --url https://graphql.anilist.co
-  gqlkit-sdl fetch --url https://graphql.anilist.co --output my-schema.graphql
+  gqlkit-sdl fetch --url https://graphql.anilist.co -o my-schema.graphql
   gqlkit-sdl fetch --url https://graphql.anilist.co -H "Authorization: Bearer token"
-  gqlkit-sdl fetch --url https://graphql.anilist.co -H "Authorization: Bearer token" -H "Origin: https://example.com"
-  gqlkit-sdl fetch --url https://graphql.anilist.co --debug
-  gqlkit-sdl fetch --url https://graphql.anilist.co -f json -o schema.json`,
+  gqlkit-sdl fetch --url https://graphql.anilist.co -f json -o schema.json
+
+  # Keep only specific queries
+  gqlkit-sdl fetch --url https://example.com/graphql --only-queries users,posts
+
+  # Exclude mutations by regex pattern
+  gqlkit-sdl fetch --url https://example.com/graphql --exclude-mutations "task.*,space.*"
+
+  # Combine filters and prune orphaned types
+  gqlkit-sdl fetch --url https://example.com/graphql \
+    --exclude-queries "task.*,space.*" \
+    --exclude-mutations "task.*,space.*" \
+    --remove-unused`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts := &schema.FetchOptions{
 				Headers: make(map[string]string),
@@ -80,6 +98,18 @@ Examples:
 			}
 			if introspectionSchema == nil {
 				return nil
+			}
+
+			filterOpts := &schema.FilterOptions{
+				OnlyQueries:      onlyQueries,
+				OnlyMutations:    onlyMutations,
+				ExcludeQueries:   excludeQueries,
+				ExcludeMutations: excludeMutations,
+				RemoveUnused:     removeUnused,
+			}
+			if filterOpts.HasFilters() || filterOpts.RemoveUnused {
+				fmt.Println("Applying filters...")
+				introspectionSchema = schema.FilterSchema(introspectionSchema, filterOpts)
 			}
 
 			switch format {
@@ -107,6 +137,11 @@ Examples:
 	cmd.Flags().StringArrayVarP(&headers, "header", "H", nil, `HTTP header in "Key:Value" format (repeatable)`)
 	cmd.Flags().BoolVar(&debug, "debug", false, "Print the curl command for debugging")
 	cmd.Flags().StringVarP(&format, "format", "f", "graphql", `Output format: "graphql" (SDL) or "json"`)
+	cmd.Flags().StringSliceVar(&onlyQueries, "only-queries", nil, "Keep only these query fields (comma-separated)")
+	cmd.Flags().StringSliceVar(&onlyMutations, "only-mutations", nil, "Keep only these mutation fields (comma-separated)")
+	cmd.Flags().StringSliceVar(&excludeQueries, "exclude-queries", nil, "Remove these query fields (comma-separated)")
+	cmd.Flags().StringSliceVar(&excludeMutations, "exclude-mutations", nil, "Remove these mutation fields (comma-separated)")
+	cmd.Flags().BoolVar(&removeUnused, "remove-unused", false, "Remove types/inputs not referenced by remaining operations")
 	cmd.MarkFlagRequired("url")
 
 	return cmd
