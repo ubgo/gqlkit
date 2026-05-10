@@ -10,6 +10,7 @@ import (
 // PingBuilder builds a query for ping
 type PingBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // Execute runs the query and returns the result

@@ -373,6 +373,70 @@ selection.AddChild("... on User", userFrag)
 results, err := builder.Execute(ctx)
 ```
 
+### Batching multiple queries in one request
+
+`batch.RunQueries` merges several builders into a single GraphQL operation with aliased root fields, posts it once, and decodes the response into a struct keyed by alias via `json` tags. Use it when a screen needs several lists at once (dashboards, side-by-side filtered views).
+
+```go
+import (
+    "errors"
+    "yourmodule/sdk/batch"
+    "yourmodule/sdk/fields"
+    "yourmodule/sdk/inputs"
+    "yourmodule/sdk/types"
+)
+
+type Dashboard struct {
+    Open      []types.Todo `json:"open"`
+    Completed []types.Todo `json:"completed"`
+    Users     []types.User `json:"users"`
+}
+
+var r Dashboard
+err := batch.RunQueries(ctx, &r, batch.QueryItems{
+    "open": qr.Todos().
+        Filter(&inputs.TodoFilter{Done: boolPtr(false)}).
+        Select(func(f *fields.TodoFields) { f.ID().Text().Done() }),
+    "completed": qr.Todos().
+        Filter(&inputs.TodoFilter{Done: boolPtr(true)}).
+        Select(func(f *fields.TodoFields) { f.ID().Text().Done() }),
+    "users": qr.Users().
+        Select(func(u *fields.UserFields) { u.ID().Name().Role() }),
+})
+
+if err != nil {
+    var berr *batch.Error
+    if errors.As(err, &berr) {
+        // Partial-success: r.Open / r.Completed are still populated for
+        // aliases that resolved; berr.Errors carries per-alias diagnostics.
+        for _, e := range berr.Errors {
+            log.Printf("alias path=%v: %s", e.Path, e.Message)
+        }
+    } else {
+        return err
+    }
+}
+
+fmt.Printf("open=%d completed=%d users=%d\n",
+    len(r.Open), len(r.Completed), len(r.Users))
+```
+
+Generated query (server-side view):
+
+```graphql
+query Batch($completed_filter: TodoFilter, $open_filter: TodoFilter) {
+  open:      todos(filter: $open_filter)      { id text done }
+  completed: todos(filter: $completed_filter) { id text done }
+  users:                                      { id name role }
+}
+```
+
+Rules:
+
+- Argument names are namespaced with the alias to avoid collisions (`$open_filter` vs `$completed_filter`).
+- Mixing query and mutation builders in one batch is a compile error — use `batch.RunMutations` for mutations.
+- Server-returned errors arrive as `*batch.Error` (use `errors.As`); successful aliases are still decoded into `dest` so partial UI can render.
+
 ---
 
 ## Error Handling

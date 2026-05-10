@@ -12,6 +12,7 @@ import (
 // UsersBuilder builds a query for users
 type UsersBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // Select configures which fields to return

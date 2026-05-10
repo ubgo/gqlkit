@@ -11,6 +11,7 @@ import (
 // ServerInfoBuilder builds a query for serverInfo
 type ServerInfoBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // Execute runs the query and returns the result

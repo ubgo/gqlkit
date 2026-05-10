@@ -10,6 +10,7 @@ import (
 // CompleteAllTodosMutationBuilder builds a mutation for completeAllTodos
 type CompleteAllTodosMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // Execute runs the mutation and returns the result

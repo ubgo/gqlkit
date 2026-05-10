@@ -10,6 +10,7 @@ import (
 // DeleteTodoMutationBuilder builds a mutation for deleteTodo
 type DeleteTodoMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // ID sets the id argument

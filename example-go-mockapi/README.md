@@ -43,6 +43,7 @@ sdk/                     Generated SDK (do not edit)
   fields/                Type-safe field selectors
   queries/               Query builders + QueryRoot
   mutations/             Mutation builders + MutationRoot
+  batch/                 Single-request multi-query helper (RunQueries / RunMutations)
 ```
 
 ## SDK Usage Examples
@@ -89,7 +90,23 @@ created, _ := mr.CreateTodo().
     Input(inputs.NewTodo{Text: "New todo", UserID: "1"}).
     Select(func(f *fields.TodoFields) { f.ID().Text() }).
     Execute(ctx)
+
+// Batch — three queries, one HTTP request
+type Dashboard struct {
+    Open      []types.Todo `json:"open"`
+    Completed []types.Todo `json:"completed"`
+    Users     []types.User `json:"users"`
+}
+var r Dashboard
+_ = batch.RunQueries(ctx, &r, batch.QueryItems{
+    "open":      qr.Todos().Filter(&inputs.TodoFilter{Done: boolPtr(false)}).Select(...),
+    "completed": qr.Todos().Filter(&inputs.TodoFilter{Done: boolPtr(true)}).Select(...),
+    "users":     qr.Users().Select(...),
+})
+// r.Open, r.Completed, r.Users typed by the result struct
 ```
+
+`runBatch` in `cmd/samples/main.go` is a runnable version of the batch example.
 
 ## Fetching the Schema
 

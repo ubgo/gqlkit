@@ -4,6 +4,11 @@
 // {{ .BuilderName }} builds a {{ .OpType }} for {{ .FieldName }}
 type {{ .BuilderName }} struct {
     *builder.BaseBuilder
+{{- if eq .OpType "query" }}
+    builder.QueryMarker
+{{- else }}
+    builder.MutationMarker
+{{- end }}
 }
 
 {{- range .Arguments }}

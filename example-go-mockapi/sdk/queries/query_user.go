@@ -12,6 +12,7 @@ import (
 // UserBuilder builds a query for user
 type UserBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // ID sets the id argument

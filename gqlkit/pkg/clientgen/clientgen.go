@@ -151,6 +151,12 @@ func (g *Generator) Generate() error {
 	}
 	fmt.Println("Generated: queries/ and mutations/")
 
+	// Generate batch package
+	if err := g.generateBatchFiles(); err != nil {
+		return fmt.Errorf("failed to generate batch files: %w", err)
+	}
+	fmt.Println("Generated: batch/batch.go")
+
 	// // Generate inputs
 	// if err := g.generateInputs(); err != nil {
 	// 	return fmt.Errorf("failed to generate inputs: %w", err)
@@ -199,6 +205,26 @@ func (g *Generator) generateGraphQLClientFiles() error {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
 	return g.writer.WriteFile("graphqlclient/graphqlclient.go", b.String())
+}
+
+// generateBatchFiles renders batch/batch.go into the generated SDK. The batch
+// package merges multiple builders into a single GraphQL operation with
+// aliased root fields, importing the SDK's local builder + graphqlclient
+// packages so it's fully self-contained.
+func (g *Generator) generateBatchFiles() error {
+	rootPkg := strings.TrimSuffix(g.config.Package, "/")
+	if rootPkg == "" {
+		rootPkg = "github.com/khanakia/gqlkit/gqlkit/sdk"
+	}
+	b := bytes.NewBuffer(nil)
+	err := g.templates.ExecuteTemplate(b, "batch", map[string]interface{}{
+		"Config":      g.config,
+		"RootPackage": rootPkg,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to execute batch template: %w", err)
+	}
+	return g.writer.WriteFile("batch/batch.go", b.String())
 }
 
 // generateScalars builds scalar type aliases (e.g. type DateTime = time.Time)
