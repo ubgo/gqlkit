@@ -11,6 +11,10 @@ import (
 )
 
 // CreateTodoMutationBuilder builds a mutation for createTodo
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type CreateTodoMutationBuilder struct {
 	*builder.BaseBuilder
 	builder.MutationMarker

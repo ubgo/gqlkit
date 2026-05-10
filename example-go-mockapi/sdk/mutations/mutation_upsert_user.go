@@ -11,6 +11,10 @@ import (
 )
 
 // UpsertUserMutationBuilder builds a mutation for upsertUser
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type UpsertUserMutationBuilder struct {
 	*builder.BaseBuilder
 	builder.MutationMarker

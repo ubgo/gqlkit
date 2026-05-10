@@ -8,6 +8,10 @@ import (
 )
 
 // SumBuilder builds a query for sum
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type SumBuilder struct {
 	*builder.BaseBuilder
 	builder.QueryMarker

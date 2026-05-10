@@ -83,6 +83,13 @@ func (g *Generator) buildFieldSelectorData(def *ast.Definition) TSFieldSelectorD
 		}
 		if isObj {
 			f.NestedSelector = baseName + "Fields"
+			// Skip the import only when the field type *is* the enclosing
+			// type (e.g. Item.parent: Item) — TS classes self-reference
+			// fine, but `import { ItemFields } from "./item"` inside
+			// item.ts is a self-import that breaks the build. The earlier
+			// version of this code mistakenly skipped the entire object-
+			// field treatment for self-refs, generating a scalar leaf
+			// without a selector callback; that's the bug fixed in 871c081.
 			if baseName != def.Name {
 				filePath := "./" + toKebabCase(baseName)
 				importMap[f.NestedSelector] = TSFieldImport{
