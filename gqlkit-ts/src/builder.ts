@@ -264,4 +264,41 @@ export class BaseBuilder {
       variables
     );
   }
+
+  /**
+   * Produce the pieces needed to merge this operation into a batched, multi-root
+   * operation under a caller-chosen alias. Argument names are namespaced with
+   * the alias so multiple builders sharing argument names (e.g., two `tasks`
+   * calls each taking `$status`) do not collide in the merged document.
+   *
+   * @param alias - GraphQL response key for this operation's root field.
+   * @returns Operation kind, prefixed variable declarations + values, and the
+   *          aliased root-field string ready to be concatenated into a batch.
+   */
+  getOpFragment(alias: string): {
+    opType: string;
+    varDecls: string[];
+    varValues: Record<string, unknown>;
+    aliasedField: string;
+  } {
+    const varDecls: string[] = [];
+    const argPasses: string[] = [];
+    const varValues: Record<string, unknown> = {};
+
+    for (const [name, { value, graphqlType }] of this.args) {
+      const prefixed = `${alias}_${name}`;
+      varDecls.push(`$${prefixed}: ${graphqlType}`);
+      argPasses.push(`${name}: $${prefixed}`);
+      varValues[prefixed] = value;
+    }
+
+    const argStr = argPasses.length > 0 ? `(${argPasses.join(", ")})` : "";
+    const selStr = this.selection.isEmpty()
+      ? ""
+      : ` {\n${this.selection.build(4)}\n  }`;
+
+    const aliasedField = `${alias}: ${this.fieldName}${argStr}${selStr}`;
+
+    return { opType: this.opType, varDecls, varValues, aliasedField };
+  }
 }

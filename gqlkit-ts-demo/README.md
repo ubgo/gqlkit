@@ -16,7 +16,7 @@ npm start
 
 ## What it does
 
-- Imports all public exports from `gqlkit-ts` (`GraphQLClient`, `GraphQLErrors`, `FieldSelection`, `BaseBuilder`)
+- Imports all public exports from `gqlkit-ts` (`GraphQLClient`, `GraphQLErrors`, `FieldSelection`, `BaseBuilder`, `batch`)
 - Verifies each export is available
 - Runs a live GraphQL query against a public Countries API
 - Prints the first 5 countries from the response

@@ -35,6 +35,7 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "rebuild": "npm run clean && npm run build",
+    "test": "tsx --test src/*.test.ts",
     "pack:preview": "npm pack --dry-run",
     "publish:patch": "npm version patch && npm publish",
     "publish:minor": "npm version minor && npm publish",
@@ -42,6 +43,8 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.7.0",
     "typescript": "^5.4.0"
   }
 }
