@@ -192,6 +192,7 @@ Deep dive: [docs/ai-friendly.md](./docs/ai-friendly.md)
 - **Type-safe field selection** — only selected fields exist on the return type; unselected fields are compile-time errors
 - **Builder pattern** — fluent API for queries, mutations, arguments, and nested field selection
 - **Go + TypeScript** — generate SDKs for both languages from the same schema
+- **Single-request batching (TypeScript)** — merge multiple builders into one GraphQL operation with aliases via `batch()` — one HTTP round trip for N queries
 - **Schema introspection** — fetch schemas from any GraphQL endpoint with `gqlkit-sdl`
 - **Custom scalar mappings** — configure how GraphQL scalars map to language types via `config.jsonc`
 - **Zero runtime overhead** — generated code with minimal dependencies

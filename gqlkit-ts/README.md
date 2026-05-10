@@ -60,6 +60,32 @@ const data = await client.rawQuery(
 // Returns unknown — useful for ad-hoc/untyped queries
 ```
 
+### Batching Multiple Queries Into One Request
+
+Use `batch` to send several builders as a single GraphQL operation with aliases — one HTTP round trip, not N. All builders must share the same operation type (all queries or all mutations).
+
+```typescript
+import { batch } from "gqlkit-ts";
+
+const { open, completed } = await batch(client, {
+  open: qr.tasks(),
+  completed: qr.tasks().status("completed"),
+});
+// → POST /graphql once
+// query Batch($completed_status: Status) {
+//   open: tasks { ... }
+//   completed: tasks(status: $completed_status) { ... }
+// }
+```
+
+The result is keyed by the alias you supplied; each value is typed from that builder's `execute()` return type. Argument names are namespaced with the alias (`$completed_status`), so two builders sharing an argument name don't collide.
+
+Pass `{ opName }` to override the default `Batch` operation name:
+
+```typescript
+await batch(client, { ... }, { opName: "DashboardLoad" });
+```
+
 ### Error Handling
 
 ```typescript
@@ -90,6 +116,18 @@ HTTP client for executing GraphQL operations.
 |---|---|
 | `execute<T>(query, variables?)` | Execute a query and return typed `data` |
 | `rawQuery(query, variables?)` | Execute a query and return untyped `data` |
+
+### `batch(client, builders, options?)`
+
+Merges multiple builders into a single GraphQL operation. Returns an alias-keyed result object, each value typed from the corresponding builder's `execute()` return type.
+
+| Argument | Type | Description |
+|---|---|---|
+| `client` | `GraphQLClient` | Client used to send the merged operation |
+| `builders` | `Record<string, BatchableBuilder>` | Alias → builder map; aliases become GraphQL response keys |
+| `options.opName` | `string` | Operation name (default: `"Batch"`) |
+
+Throws if the input is empty or if builders mix `query` and `mutation`.
 
 ### `ClientOptions`
 

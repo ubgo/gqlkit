@@ -17,3 +17,5 @@ export { BaseBuilder } from "./builder";
 export { GraphQLClient } from "./graphqlclient";
 export { GraphQLErrors } from "./graphqlclient";
 export type { ClientOptions } from "./graphqlclient";
+export { batch } from "./batch";
+export type { BatchableBuilder, BatchResult, BatchOptions } from "./batch";

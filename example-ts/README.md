@@ -86,6 +86,15 @@ const created = await mr.createTodo()
     .input({ text: "Buy milk", userId: "1" })
     .select((t) => t.id().text().done())
     .execute();
+
+// Batch — multiple builders, one HTTP request
+import { batch } from "gqlkit-ts";
+
+const { open, done } = await batch(client, {
+    open:  qr.todos().filter({ done: false }).select((t) => t.id().text()),
+    done:  qr.todos().filter({ done: true  }).select((t) => t.id().text()),
+});
+// open and done are typed independently from each builder's selection
 ```
 
 ## Type Safety

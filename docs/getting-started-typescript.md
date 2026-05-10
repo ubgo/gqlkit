@@ -297,6 +297,34 @@ const rawData = await qr.ping().executeRaw();
 // rawData is Record<string, unknown>
 ```
 
+### Batching multiple queries in one request
+
+Send several builders as a single GraphQL operation with aliases. Useful for dashboards, side-by-side filtered lists, or any screen that loads multiple root fields at once.
+
+```typescript
+import { batch } from "gqlkit-ts";
+
+const { open, completed } = await batch(client, {
+  open:      qr.todos().filter({ done: false }).select((t) => t.id().text()),
+  completed: qr.todos().filter({ done: true  }).select((t) => t.id().text()),
+});
+// One HTTP POST. open / completed typed independently from their selections.
+```
+
+The keys in the input map become GraphQL aliases in the resulting operation:
+
+```graphql
+query Batch($open_filter: TodoFilter, $completed_filter: TodoFilter) {
+  open:      todos(filter: $open_filter)      { id text }
+  completed: todos(filter: $completed_filter) { id text }
+}
+```
+
+Rules:
+- All builders must share the same operation type — mixing `query` and `mutation` throws.
+- Argument names are namespaced with the alias to avoid collisions.
+- Pass `{ opName: "DashboardLoad" }` as a third argument to override the default `Batch` operation name.
+
 ---
 
 ## Error Handling
