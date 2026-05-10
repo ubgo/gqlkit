@@ -13,15 +13,28 @@
  * ```
  */
 
-import { BaseBuilder } from "./builder";
 import { GraphQLClient } from "./graphqlclient";
 
 /**
- * Any object exposing a typed `execute()` — i.e. every generated builder.
- * Used to derive the result shape of a batched call from the input map.
+ * Shape of an operation slice produced by a builder so it can be merged into
+ * a batched, multi-root document.
  */
-export interface BatchableBuilder<TResult = unknown> extends BaseBuilder {
+export interface OpFragment {
+  opType: string;
+  varDecls: string[];
+  varValues: Record<string, unknown>;
+  aliasedField: string;
+}
+
+/**
+ * Structural type for any builder that can participate in a {@link batch}
+ * call. Generated builders compose (rather than extend) `BaseBuilder`, so this
+ * interface only requires the two methods batch needs — `execute()` to derive
+ * the result type and `getOpFragment(alias)` to merge into the operation.
+ */
+export interface BatchableBuilder<TResult = unknown> {
   execute(): Promise<TResult>;
+  getOpFragment(alias: string): OpFragment;
 }
 
 /**

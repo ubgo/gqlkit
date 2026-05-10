@@ -38,4 +38,9 @@ export class SumBuilder {
   async executeRaw(): Promise<Record<string, unknown>> {
     return await this.builder.executeRaw();
   }
+
+  /** Internal — exposes this operation as a fragment for batch() */
+  getOpFragment(alias: string) {
+    return this.builder.getOpFragment(alias);
+  }
 }
