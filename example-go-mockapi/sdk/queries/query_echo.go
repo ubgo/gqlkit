@@ -10,6 +10,7 @@ import (
 // EchoBuilder builds a query for echo
 type EchoBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // Message sets the message argument

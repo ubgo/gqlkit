@@ -10,10 +10,12 @@ import (
 	"example-go-mockapi/sdk/graphqlclient"
 
 	sdkbuilder "example-go-mockapi/sdk/builder"
+	"example-go-mockapi/sdk/batch"
 	"example-go-mockapi/sdk/fields"
 	"example-go-mockapi/sdk/inputs"
 	"example-go-mockapi/sdk/mutations"
 	"example-go-mockapi/sdk/queries"
+	"example-go-mockapi/sdk/types"
 )
 
 func main() {
@@ -71,6 +73,63 @@ func main() {
 		debugPrintError(err)
 		log.Fatal(err)
 	}
+
+	if err := runBatch(ctx, qr); err != nil {
+		debugPrintError(err)
+		log.Fatal(err)
+	}
+}
+
+// runBatch demonstrates merging three queries into a single HTTP request via
+// batch.RunQueries — open todos, completed todos, and users — decoded into a
+// single result struct via json tags. Mirrors the TS batch() sample.
+func runBatch(ctx context.Context, qr *queries.QueryRoot) error {
+	fmt.Println("== Batch (3 queries → 1 HTTP request) ==")
+
+	type Dashboard struct {
+		Open      []types.Todo `json:"open"`
+		Completed []types.Todo `json:"completed"`
+		Users     []types.User `json:"users"`
+	}
+
+	var r Dashboard
+	err := batch.RunQueries(ctx, &r, batch.QueryItems{
+		"open": qr.Todos().
+			Filter(&inputs.TodoFilter{Done: boolPtr(false)}).
+			Select(func(f *fields.TodoFields) { f.ID().Text().Done() }),
+		"completed": qr.Todos().
+			Filter(&inputs.TodoFilter{Done: boolPtr(true)}).
+			Select(func(f *fields.TodoFields) { f.ID().Text().Done() }),
+		"users": qr.Users().
+			Select(func(u *fields.UserFields) { u.ID().Name().Role() }),
+	})
+	if err != nil {
+		// Partial-success path: dest is still populated for aliases the server
+		// resolved successfully — surface diagnostics but keep going.
+		var berr *batch.Error
+		if errors.As(err, &berr) {
+			fmt.Printf("Batch returned %d GraphQL error(s):\n", len(berr.Errors))
+			for _, e := range berr.Errors {
+				fmt.Printf("  - path=%v message=%q\n", e.Path, e.Message)
+			}
+		} else {
+			return err
+		}
+	}
+
+	fmt.Printf("Batch open      (%d todos)\n", len(r.Open))
+	for _, t := range r.Open {
+		fmt.Printf("    %s — %s\n", t.ID, t.Text)
+	}
+	fmt.Printf("Batch completed (%d todos)\n", len(r.Completed))
+	for _, t := range r.Completed {
+		fmt.Printf("    %s — %s\n", t.ID, t.Text)
+	}
+	fmt.Printf("Batch users     (%d users)\n", len(r.Users))
+	for _, u := range r.Users {
+		fmt.Printf("    %s — %s (%s)\n", u.ID, u.Name, u.Role)
+	}
+	return nil
 }
 
 func runPing(ctx context.Context, qr *queries.QueryRoot) error {

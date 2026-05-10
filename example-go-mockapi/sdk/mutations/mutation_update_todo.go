@@ -13,6 +13,7 @@ import (
 // UpdateTodoMutationBuilder builds a mutation for updateTodo
 type UpdateTodoMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // ID sets the id argument

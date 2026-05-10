@@ -13,6 +13,7 @@ import (
 // CreateTodoMutationBuilder builds a mutation for createTodo
 type CreateTodoMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // Input sets the input argument

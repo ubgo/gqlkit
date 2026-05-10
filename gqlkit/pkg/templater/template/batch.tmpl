@@ -1,0 +1,201 @@
+{{ define "batch" }}
+{{- /* Batch package — merges multiple builders into a single GraphQL operation */ -}}
+// Package batch merges multiple builders into a single GraphQL operation with
+// aliased root fields, so callers can fetch several queries (or run several
+// mutations) in one HTTP round trip.
+//
+// Operation type is locked at compile time:
+//   - RunQueries   accepts only query builders   (embed builder.QueryMarker)
+//   - RunMutations accepts only mutation builders (embed builder.MutationMarker)
+//
+// Mixing query + mutation builders in a single batch is a compile error.
+//
+// Argument names from each builder are namespaced with the alias used in the
+// Items map (e.g. {"open": qr.Todos()...} produces $open_done, not $done) so
+// builders sharing an argument name coexist without colliding.
+//
+// Batches are partial-tolerant: when the server returns both data and errors
+// in the same response, the caller's destination struct is populated for
+// every alias the server resolved successfully, and the per-alias errors are
+// surfaced via *batch.Error. Callers always check err and decide whether the
+// partial data is sufficient.
+package batch
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+
+	"{{ .RootPackage }}/builder"
+	"{{ .RootPackage }}/graphqlclient"
+)
+
+// QueryBatchable is satisfied by every generated query builder. The
+// IsQueryOp marker (provided via embedded builder.QueryMarker) prevents
+// passing a mutation builder where a query is expected.
+type QueryBatchable interface {
+	GetOpFragment(alias string) builder.OpFragment
+	IsQueryOp()
+}
+
+// MutationBatchable is the dual of QueryBatchable for mutation operations.
+type MutationBatchable interface {
+	GetOpFragment(alias string) builder.OpFragment
+	IsMutationOp()
+}
+
+// QueryItems maps alias → query builder. Aliases become GraphQL response keys
+// in the merged operation and must match the json tags on the destination
+// struct passed to RunQueries.
+type QueryItems map[string]QueryBatchable
+
+// MutationItems is the mutation-side counterpart to QueryItems.
+type MutationItems map[string]MutationBatchable
+
+// Error wraps the GraphQL errors returned alongside (possibly populated)
+// data so callers can inspect per-alias diagnostics via errors.As.
+type Error struct {
+	Errors graphqlclient.GraphQLErrors
+}
+
+// Error implements the error interface; delegates to the underlying GraphQL
+// errors slice for the message.
+func (e *Error) Error() string {
+	return e.Errors.Error()
+}
+
+// Unwrap allows errors.As / errors.Is to reach the underlying GraphQLErrors.
+func (e *Error) Unwrap() error {
+	return e.Errors
+}
+
+// partialExecutor is the subset of *graphqlclient.Client used by batch when
+// the underlying client supports partial-data responses.
+type partialExecutor interface {
+	ExecuteWithPartialData(ctx context.Context, query string, variables map[string]interface{}) (json.RawMessage, graphqlclient.GraphQLErrors, error)
+}
+
+// fragmentSource is the slice of QueryBatchable / MutationBatchable that
+// batch's internal merging logic actually consumes.
+type fragmentSource interface {
+	GetOpFragment(alias string) builder.OpFragment
+}
+
+// clientHolder exposes the GraphQL client carried by every embedded
+// *builder.BaseBuilder so batch can locate the transport without an explicit
+// client argument.
+type clientHolder interface {
+	GetClient() builder.GraphQLClient
+}
+
+// RunQueries merges the supplied query builders into a single GraphQL query
+// with aliased root fields, executes it once, and decodes the response into
+// dest (a pointer to a struct with json tags matching the alias keys).
+//
+// On partial success the dest struct is still populated for the aliases the
+// server resolved; the GraphQL errors are returned wrapped in *Error.
+func RunQueries(ctx context.Context, dest any, items QueryItems) error {
+	if len(items) == 0 {
+		return errors.New("batch.RunQueries: requires at least one builder")
+	}
+	srcs := make(map[string]fragmentSource, len(items))
+	for alias, b := range items {
+		srcs[alias] = b
+	}
+	return run(ctx, dest, srcs, "Batch")
+}
+
+// RunMutations is the mutation-side counterpart of RunQueries.
+func RunMutations(ctx context.Context, dest any, items MutationItems) error {
+	if len(items) == 0 {
+		return errors.New("batch.RunMutations: requires at least one builder")
+	}
+	srcs := make(map[string]fragmentSource, len(items))
+	for alias, b := range items {
+		srcs[alias] = b
+	}
+	return run(ctx, dest, srcs, "Batch")
+}
+
+// run is the shared implementation for RunQueries and RunMutations.
+func run(ctx context.Context, dest any, items map[string]fragmentSource, opName string) error {
+	aliases := make([]string, 0, len(items))
+	for alias := range items {
+		aliases = append(aliases, alias)
+	}
+	sort.Strings(aliases)
+
+	var (
+		opType    string
+		varDecls  []string
+		varValues = map[string]interface{}{}
+		fields    []string
+	)
+
+	for i, alias := range aliases {
+		b := items[alias]
+		frag := b.GetOpFragment(alias)
+		if i == 0 {
+			opType = frag.OpType
+		} else if frag.OpType != opType {
+			return fmt.Errorf("batch: cannot mix operation types — saw %q and %q", opType, frag.OpType)
+		}
+		varDecls = append(varDecls, frag.VarDecls...)
+		for k, v := range frag.VarValues {
+			varValues[k] = v
+		}
+		fields = append(fields, frag.AliasedField)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(opType)
+	sb.WriteString(" ")
+	sb.WriteString(opName)
+	if len(varDecls) > 0 {
+		sb.WriteString("(")
+		sb.WriteString(strings.Join(varDecls, ", "))
+		sb.WriteString(")")
+	}
+	sb.WriteString(" {\n  ")
+	sb.WriteString(strings.Join(fields, "\n  "))
+	sb.WriteString("\n}")
+	query := sb.String()
+
+	holder, ok := items[aliases[0]].(clientHolder)
+	if !ok {
+		return fmt.Errorf("batch: builder %T does not expose GetClient — cannot derive transport", items[aliases[0]])
+	}
+	client := holder.GetClient()
+	if client == nil {
+		return errors.New("batch: builder returned a nil GraphQLClient")
+	}
+
+	if pe, ok := client.(partialExecutor); ok {
+		data, gqlErrs, transportErr := pe.ExecuteWithPartialData(ctx, query, varValues)
+		if transportErr != nil {
+			return transportErr
+		}
+		if dest != nil && len(data) > 0 {
+			if err := json.Unmarshal(data, dest); err != nil {
+				return fmt.Errorf("batch: failed to unmarshal data: %w", err)
+			}
+		}
+		if len(gqlErrs) > 0 {
+			return &Error{Errors: gqlErrs}
+		}
+		return nil
+	}
+
+	if err := client.Execute(ctx, query, varValues, dest); err != nil {
+		var gqlErrs graphqlclient.GraphQLErrors
+		if errors.As(err, &gqlErrs) {
+			return &Error{Errors: gqlErrs}
+		}
+		return err
+	}
+	return nil
+}
+{{ end }}

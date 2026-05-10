@@ -166,3 +166,71 @@ func (b *BaseBuilder) ExecuteRaw(ctx context.Context) (map[string]interface{}, e
 
 	return response, nil
 }
+
+// OpFragment is the slice of an operation produced by a single builder when it
+// is being merged into a batched, multi-root document by the batch package.
+// VarDecls and VarValues use alias-prefixed names (e.g. "$open_filter") so
+// builders sharing an argument name don't collide in the merged operation.
+type OpFragment struct {
+	OpType       string
+	VarDecls     []string
+	VarValues    map[string]interface{}
+	AliasedField string
+}
+
+// GetOpFragment renders this builder as a fragment that batch.RunQueries /
+// batch.RunMutations can splice into a single GraphQL document.
+func (b *BaseBuilder) GetOpFragment(alias string) OpFragment {
+	frag := OpFragment{
+		OpType:    b.opType,
+		VarValues: make(map[string]interface{}, len(b.args)),
+	}
+
+	argNames := make([]string, 0, len(b.args))
+	for name := range b.args {
+		argNames = append(argNames, name)
+	}
+	sort.Strings(argNames)
+
+	argPasses := make([]string, 0, len(b.args))
+	for _, name := range argNames {
+		prefixed := alias + "_" + name
+		gqlType := b.argTypes[name]
+		frag.VarDecls = append(frag.VarDecls, "$"+prefixed+": "+gqlType)
+		argPasses = append(argPasses, name+": $"+prefixed)
+		frag.VarValues[prefixed] = b.args[name]
+	}
+
+	var sb strings.Builder
+	sb.WriteString(alias + ": " + b.fieldName)
+	if len(argPasses) > 0 {
+		sb.WriteString("(")
+		sb.WriteString(strings.Join(argPasses, ", "))
+		sb.WriteString(")")
+	}
+
+	selectionStr := b.selection.Build(2)
+	if selectionStr != "" {
+		sb.WriteString(" {\n")
+		sb.WriteString(selectionStr)
+		sb.WriteString("  }")
+	}
+
+	frag.AliasedField = sb.String()
+	return frag
+}
+
+// QueryMarker is a zero-size embed that tags a generated builder as a "query"
+// operation for the batch package. Mutation builders embed MutationMarker.
+type QueryMarker struct{}
+
+// IsQueryOp is the marker method that identifies a builder as a query
+// operation; satisfies batch.QueryBatchable.
+func (QueryMarker) IsQueryOp() {}
+
+// MutationMarker is the dual of QueryMarker for mutation operations.
+type MutationMarker struct{}
+
+// IsMutationOp is the marker method that identifies a builder as a mutation
+// operation; satisfies batch.MutationBatchable.
+func (MutationMarker) IsMutationOp() {}

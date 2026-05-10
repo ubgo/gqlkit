@@ -10,6 +10,7 @@ import (
 // SearchBuilder builds a query for search
 type SearchBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // Term sets the term argument

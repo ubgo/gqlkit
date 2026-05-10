@@ -10,6 +10,7 @@ import (
 // SumBuilder builds a query for sum
 type SumBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // A sets the a argument

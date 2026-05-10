@@ -13,6 +13,7 @@ import (
 // UpsertUserMutationBuilder builds a mutation for upsertUser
 type UpsertUserMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // ID sets the id argument

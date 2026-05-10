@@ -179,3 +179,54 @@ func (c *Client) RawQuery(ctx context.Context, query string, variables map[strin
 
 	return result.Data, nil
 }
+
+// ExecuteWithPartialData performs the request and returns the raw JSON "data"
+// payload alongside any GraphQL errors. Unlike Execute, it does NOT
+// short-circuit when errors are present — both can be non-nil simultaneously.
+// Used by the batch package so partial-success batches still populate the
+// caller's destination struct even when one alias errored.
+func (c *Client) ExecuteWithPartialData(
+	ctx context.Context,
+	query string,
+	variables map[string]interface{},
+) (json.RawMessage, GraphQLErrors, error) {
+	reqBody := graphQLRequest{Query: query, Variables: variables}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	for key, value := range c.headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(respBody))
+	}
+
+	var gqlResp graphQLResponse
+	if err := json.Unmarshal(respBody, &gqlResp); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return gqlResp.Data, GraphQLErrors(gqlResp.Errors), nil
+}

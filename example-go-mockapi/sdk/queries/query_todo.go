@@ -12,6 +12,7 @@ import (
 // TodoBuilder builds a query for todo
 type TodoBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // ID sets the id argument

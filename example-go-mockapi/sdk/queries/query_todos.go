@@ -13,6 +13,7 @@ import (
 // TodosBuilder builds a query for todos
 type TodosBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // Filter sets the filter argument
