@@ -1,4 +1,4 @@
-import { GraphQLClient, GraphQLErrors } from "gqlkit-ts";
+import { GraphQLClient, GraphQLErrors, batch } from "gqlkit-ts";
 import { QueryRoot } from "../../sdk/queries";
 import { MutationRoot } from "../../sdk/mutations";
 
@@ -55,6 +55,12 @@ async function main() {
 
   try {
     await runTodoWithScalars(qr);
+  } catch (err) {
+    debugPrintError(err);
+  }
+
+  try {
+    await runBatch(qr, client);
   } catch (err) {
     debugPrintError(err);
   }
@@ -159,6 +165,26 @@ async function runTodoWithScalars(qr: QueryRoot) {
     .execute();
 
   console.log("Todo with scalars:", JSON.stringify(result, null, 2));
+}
+
+async function runBatch(qr: QueryRoot, client: GraphQLClient) {
+  console.log("== Batch (multiple builders, one HTTP request) ==");
+
+  const result = await batch(client, {
+    open: qr
+      .todos()
+      .filter({ done: false })
+      .select((t) => t.id().text().done()),
+    completed: qr
+      .todos()
+      .filter({ done: true })
+      .select((t) => t.id().text().done()),
+    users: qr.users().select((u) => u.id().name().role()),
+  });
+
+  console.log("Batch open:", JSON.stringify(result.open, null, 2));
+  console.log("Batch completed:", JSON.stringify(result.completed, null, 2));
+  console.log("Batch users:", JSON.stringify(result.users, null, 2));
 }
 
 async function runTodos(qr: QueryRoot) {
