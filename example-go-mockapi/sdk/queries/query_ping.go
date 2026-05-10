@@ -8,6 +8,10 @@ import (
 )
 
 // PingBuilder builds a query for ping
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type PingBuilder struct {
 	*builder.BaseBuilder
 	builder.QueryMarker

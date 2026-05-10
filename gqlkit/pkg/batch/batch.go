@@ -56,7 +56,9 @@ type QueryItems map[string]QueryBatchable
 type MutationItems map[string]MutationBatchable
 
 // Error wraps the GraphQL errors returned alongside (possibly populated)
-// data. Callers can inspect Errors for per-alias diagnostics.
+// data. Callers can inspect Errors for per-alias diagnostics. The Path on
+// each underlying GraphQLError starts with the alias name, so a failed
+// "users" alias surfaces as Path: ["users", ...].
 type Error struct {
 	Errors graphqlclient.GraphQLErrors
 }
@@ -67,27 +69,41 @@ func (e *Error) Error() string {
 	return e.Errors.Error()
 }
 
-// Unwrap allows errors.As / errors.Is to reach the underlying GraphQLErrors.
+// Unwrap exposes the underlying GraphQLErrors so existing
+// errors.As(err, &graphqlclient.GraphQLErrors{}) sites continue to work
+// against batch errors — important for callers migrating from single-query
+// Execute to RunQueries without rewriting their error-handling.
 func (e *Error) Unwrap() error {
 	return e.Errors
 }
 
 // partialExecutor is the subset of *graphqlclient.Client used by batch when
-// the underlying client supports partial-data responses. It's an interface
-// only so tests can inject a fake without depending on the concrete client.
+// the underlying client supports partial-data responses.
+//
+// It's an *optional* interface: builder.GraphQLClient (the interface every
+// generated builder accepts) only requires Execute, which short-circuits on
+// GraphQL errors. Batch type-asserts the client up to this richer interface
+// at runtime — when it succeeds we get partial-success semantics, when it
+// fails we fall back to strict Execute. Defining the contract as a local
+// interface (instead of importing *graphqlclient.Client directly) keeps the
+// dependency one-way and lets tests inject a fake.
 type partialExecutor interface {
 	ExecuteWithPartialData(ctx context.Context, query string, variables map[string]interface{}) (json.RawMessage, graphqlclient.GraphQLErrors, error)
 }
 
 // fragmentSource is satisfied by both QueryBatchable and MutationBatchable —
-// the bit of their surface that batch internals actually consume.
+// the bit of their surface that batch internals actually consume. The op-kind
+// separation only matters at the public API; once we're inside run() the
+// merging logic doesn't care which marker the builder embeds.
 type fragmentSource interface {
 	GetOpFragment(alias string) builder.OpFragment
 }
 
-// clientHolder is the slice of builder.BaseBuilder that exposes the GraphQL
-// client. Generated builders embed *builder.BaseBuilder, so they satisfy this
-// via method promotion.
+// clientHolder is the slice of *builder.BaseBuilder that exposes the GraphQL
+// client. Generated builders compose (rather than extend) *BaseBuilder, so
+// they satisfy this via method promotion — we can't reach the client by
+// downcasting to a concrete *BaseBuilder. Type-asserting against this
+// interface keeps batch decoupled from any specific builder layout.
 type clientHolder interface {
 	GetClient() builder.GraphQLClient
 }
@@ -121,9 +137,14 @@ func RunMutations(ctx context.Context, dest any, items MutationItems) error {
 	return run(ctx, dest, srcs, "Batch")
 }
 
-// run is the shared implementation for RunQueries and RunMutations.
+// run is the shared implementation for RunQueries and RunMutations. The
+// public functions only differ in the type of their items map (compile-time
+// op-kind lock); once erased to fragmentSource, the merging logic is the
+// same.
 func run(ctx context.Context, dest any, items map[string]fragmentSource, opName string) error {
-	// Sort aliases for deterministic query strings (helps caching, snapshots, observability).
+	// Sort aliases so the same input map always produces a byte-identical
+	// query string. Matters for: HTTP cache keys, response snapshots, log
+	// readability, and any tooling that fingerprints queries by hash.
 	aliases := make([]string, 0, len(items))
 	for alias := range items {
 		aliases = append(aliases, alias)
@@ -187,6 +208,10 @@ func run(ctx context.Context, dest any, items map[string]fragmentSource, opName 
 		if transportErr != nil {
 			return transportErr
 		}
+		// Decode opportunistically: if the server returned `errors` and
+		// `data: null`, len(data) is 0 and json.Unmarshal would no-op
+		// anyway — we skip explicitly so dest stays its zero value rather
+		// than getting "null" decoded into it.
 		if dest != nil && len(data) > 0 {
 			if err := json.Unmarshal(data, dest); err != nil {
 				return fmt.Errorf("batch: failed to unmarshal data: %w", err)

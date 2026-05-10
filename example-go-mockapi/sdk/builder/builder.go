@@ -221,14 +221,23 @@ func (b *BaseBuilder) GetOpFragment(alias string) OpFragment {
 }
 
 // QueryMarker is a zero-size embed that tags a generated builder as a "query"
-// operation for the batch package. Mutation builders embed MutationMarker.
+// operation. Embedded into every generated query builder; mutation builders
+// embed MutationMarker.
+//
+// The marker exists to give the type system something to discriminate on:
+// batch.QueryBatchable requires both GetOpFragment and IsQueryOp;
+// MutationBatchable requires GetOpFragment and IsMutationOp. A query builder
+// satisfies the first but not the second, so passing a mutation builder to
+// batch.RunQueries fails at compile time. This is cheaper than a runtime
+// op-type check and surfaces mistakes in the editor.
 type QueryMarker struct{}
 
 // IsQueryOp is the marker method that identifies a builder as a query
 // operation; satisfies batch.QueryBatchable.
 func (QueryMarker) IsQueryOp() {}
 
-// MutationMarker is the dual of QueryMarker for mutation operations.
+// MutationMarker is the dual of QueryMarker for mutation operations. See
+// QueryMarker for the full rationale of the marker pattern.
 type MutationMarker struct{}
 
 // IsMutationOp is the marker method that identifies a builder as a mutation

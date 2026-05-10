@@ -40,6 +40,12 @@ export interface BatchableBuilder<TResult = unknown> {
 /**
  * Map an alias-keyed builder map to its result shape, where each alias key
  * resolves to that builder's `execute()` return type.
+ *
+ * This is the key win over the Go side: TS mapped types let us *infer* a
+ * different result type per alias from a heterogeneous input map, so callers
+ * get fully-typed `result.open`, `result.completed`, etc. without declaring
+ * a separate result struct. The Go batch package can't replicate this and
+ * uses a caller-supplied struct instead.
  */
 export type BatchResult<
   T extends Record<string, BatchableBuilder<unknown>>,
@@ -83,6 +89,11 @@ export async function batch<
 
   const fragments = entries.map(([alias, b]) => b.getOpFragment(alias));
 
+  // Op-type validation is runtime-only on the TS side: every builder
+  // structurally satisfies BatchableBuilder regardless of whether it
+  // produces a query or mutation, so the type system can't reject mixing.
+  // The Go batch package gets compile-time safety here via marker types —
+  // see gqlkit/pkg/batch for the equivalent guarantee on the Go side.
   const opType = fragments[0]!.opType;
   for (const f of fragments) {
     if (f.opType !== opType) {
