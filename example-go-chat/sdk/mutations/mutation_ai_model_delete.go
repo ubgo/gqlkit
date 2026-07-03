@@ -8,8 +8,13 @@ import (
 )
 
 // AiModelDeleteMutationBuilder builds a mutation for aiModelDelete
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type AiModelDeleteMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // ID sets the id argument

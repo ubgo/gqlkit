@@ -8,8 +8,13 @@ import (
 )
 
 // ItemGroupSourceTextsAddMutationBuilder builds a mutation for itemGroupSourceTextsAdd
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ItemGroupSourceTextsAddMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // ID sets the id argument

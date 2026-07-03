@@ -10,8 +10,13 @@ import (
 )
 
 // ItemAiSearchBuilder builds a query for itemAiSearch
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ItemAiSearchBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // ItemGroupID sets the itemGroupID argument

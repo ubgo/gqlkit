@@ -8,8 +8,13 @@ import (
 )
 
 // AppUninstallMutationBuilder builds a mutation for appUninstall
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type AppUninstallMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // InstallationID sets the installationId argument

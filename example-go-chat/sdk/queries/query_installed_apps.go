@@ -10,8 +10,13 @@ import (
 )
 
 // InstalledAppsBuilder builds a query for installedApps
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type InstalledAppsBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // Select configures which fields to return

@@ -8,8 +8,13 @@ import (
 )
 
 // ChatbotUserAddMutationBuilder builds a mutation for chatbotUserAdd
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ChatbotUserAddMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // ChatbotID sets the chatbotId argument

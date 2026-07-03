@@ -8,8 +8,13 @@ import (
 )
 
 // ChatbotClearCacheMutationBuilder builds a mutation for chatbotClearCache
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ChatbotClearCacheMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // ID sets the id argument

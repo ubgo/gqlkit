@@ -12,8 +12,13 @@ import (
 )
 
 // ChatbotUsersBuilder builds a query for chatbotUsers
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ChatbotUsersBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // After sets the after argument

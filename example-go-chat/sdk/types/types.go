@@ -32,9 +32,9 @@ type AiModel struct {
 	IntModelID      *string           `json:"intModelID,omitempty"`
 	MaxDims         *int              `json:"maxDims,omitempty"`
 	MaxTokens       *int              `json:"maxTokens,omitempty"`
-	Chatbots        []Chatbot         `json:"chatbots,omitempty"`
-	FuncTools       []FuncTool        `json:"funcTools,omitempty"`
-	ItemGroups      []ItemGroup       `json:"itemGroups,omitempty"`
+	Chatbots        []*Chatbot        `json:"chatbots,omitempty"`
+	FuncTools       []*FuncTool       `json:"funcTools,omitempty"`
+	ItemGroups      []*ItemGroup      `json:"itemGroups,omitempty"`
 }
 
 // AiModelConnection A connection to a list of items.
@@ -43,7 +43,7 @@ type AiModelConnection struct {
 	// A list of edges.
 	Edges []*AiModelEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -66,11 +66,11 @@ type AppSessionResponse struct {
 
 // AppStoreApp represents the GraphQL type AppStoreApp
 type AppStoreApp struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Description *string         `json:"description,omitempty"`
-	IconURL     *string         `json:"iconUrl,omitempty"`
-	Partner     AppStorePartner `json:"partner"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Description *string          `json:"description,omitempty"`
+	IconURL     *string          `json:"iconUrl,omitempty"`
+	Partner     *AppStorePartner `json:"partner"`
 }
 
 // AppStorePartner represents the GraphQL type AppStorePartner
@@ -82,19 +82,19 @@ type AppStorePartner struct {
 
 // BillingFeature represents the GraphQL type BillingFeature
 type BillingFeature struct {
-	ID                      string                   `json:"id"`
-	CreatedAt               *time.Time               `json:"createdAt,omitempty"`
-	UpdatedAt               *time.Time               `json:"updatedAt,omitempty"`
-	Name                    string                   `json:"name"`
-	GroupName               *string                  `json:"groupName,omitempty"`
-	IsActive                bool                     `json:"isActive"`
-	DefaultValue            *int                     `json:"defaultValue,omitempty"`
-	UnitType                *string                  `json:"unitType,omitempty"`
-	FeatureType             *string                  `json:"featureType,omitempty"`
-	SortOrder               *int                     `json:"sortOrder,omitempty"`
-	Description             *string                  `json:"description,omitempty"`
-	BillingPlanFeatures     []BillingPlanFeature     `json:"billingPlanFeatures,omitempty"`
-	CworkspaceFeatureLimits []CWorkspaceFeatureLimit `json:"cworkspaceFeatureLimits,omitempty"`
+	ID                      string                    `json:"id"`
+	CreatedAt               *time.Time                `json:"createdAt,omitempty"`
+	UpdatedAt               *time.Time                `json:"updatedAt,omitempty"`
+	Name                    string                    `json:"name"`
+	GroupName               *string                   `json:"groupName,omitempty"`
+	IsActive                bool                      `json:"isActive"`
+	DefaultValue            *int                      `json:"defaultValue,omitempty"`
+	UnitType                *string                   `json:"unitType,omitempty"`
+	FeatureType             *string                   `json:"featureType,omitempty"`
+	SortOrder               *int                      `json:"sortOrder,omitempty"`
+	Description             *string                   `json:"description,omitempty"`
+	BillingPlanFeatures     []*BillingPlanFeature     `json:"billingPlanFeatures,omitempty"`
+	CworkspaceFeatureLimits []*CWorkspaceFeatureLimit `json:"cworkspaceFeatureLimits,omitempty"`
 }
 
 // BillingFeatureConnection A connection to a list of items.
@@ -103,7 +103,7 @@ type BillingFeatureConnection struct {
 	// A list of edges.
 	Edges []*BillingFeatureEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -119,27 +119,27 @@ type BillingFeatureEdge struct {
 
 // BillingPlan represents the GraphQL type BillingPlan
 type BillingPlan struct {
-	ID                  string               `json:"id"`
-	CreatedAt           *time.Time           `json:"createdAt,omitempty"`
-	UpdatedAt           *time.Time           `json:"updatedAt,omitempty"`
-	Name                string               `json:"name"`
-	GroupName           *string              `json:"groupName,omitempty"`
-	Description         *string              `json:"description,omitempty"`
-	IsActive            bool                 `json:"isActive"`
-	StripeProductID     *string              `json:"stripeProductID,omitempty"`
-	IsMultiQty          bool                 `json:"isMultiQty"`
-	MaxQty              *int                 `json:"maxQty,omitempty"`
-	IsCustom            bool                 `json:"isCustom"`
-	CustomPriceID       *string              `json:"customPriceID,omitempty"`
-	PlanType            *string              `json:"planType,omitempty"`
-	HasAnnual           bool                 `json:"hasAnnual"`
-	StripePriceID       *string              `json:"stripePriceID,omitempty"`
-	StripePriceIdannual *string              `json:"stripePriceIDAnnual,omitempty"`
-	Amount              *float64             `json:"amount,omitempty"`
-	AmountAnnual        *float64             `json:"amountAnnual,omitempty"`
-	Features            *json.RawMessage     `json:"features,omitempty"`
-	SortOrder           *int                 `json:"sortOrder,omitempty"`
-	BillingPlanFeatures []BillingPlanFeature `json:"billingPlanFeatures,omitempty"`
+	ID                  string                `json:"id"`
+	CreatedAt           *time.Time            `json:"createdAt,omitempty"`
+	UpdatedAt           *time.Time            `json:"updatedAt,omitempty"`
+	Name                string                `json:"name"`
+	GroupName           *string               `json:"groupName,omitempty"`
+	Description         *string               `json:"description,omitempty"`
+	IsActive            bool                  `json:"isActive"`
+	StripeProductID     *string               `json:"stripeProductID,omitempty"`
+	IsMultiQty          bool                  `json:"isMultiQty"`
+	MaxQty              *int                  `json:"maxQty,omitempty"`
+	IsCustom            bool                  `json:"isCustom"`
+	CustomPriceID       *string               `json:"customPriceID,omitempty"`
+	PlanType            *string               `json:"planType,omitempty"`
+	HasAnnual           bool                  `json:"hasAnnual"`
+	StripePriceID       *string               `json:"stripePriceID,omitempty"`
+	StripePriceIdannual *string               `json:"stripePriceIDAnnual,omitempty"`
+	Amount              *float64              `json:"amount,omitempty"`
+	AmountAnnual        *float64              `json:"amountAnnual,omitempty"`
+	Features            *json.RawMessage      `json:"features,omitempty"`
+	SortOrder           *int                  `json:"sortOrder,omitempty"`
+	BillingPlanFeatures []*BillingPlanFeature `json:"billingPlanFeatures,omitempty"`
 }
 
 // BillingPlanConnection A connection to a list of items.
@@ -148,7 +148,7 @@ type BillingPlanConnection struct {
 	// A list of edges.
 	Edges []*BillingPlanEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -180,7 +180,7 @@ type BillingPlanFeatureConnection struct {
 	// A list of edges.
 	Edges []*BillingPlanFeatureEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -210,7 +210,7 @@ type BillingPlanWspaceConnection struct {
 	// A list of edges.
 	Edges []*BillingPlanWspaceEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -245,7 +245,7 @@ type CWorkspaceFeatureLimitConnection struct {
 	// A list of edges.
 	Edges []*CWorkspaceFeatureLimitEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -300,7 +300,7 @@ type CWorkspaceSubConnection struct {
 	// A list of edges.
 	Edges []*CWorkspaceSubEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -316,22 +316,22 @@ type CWorkspaceSubEdge struct {
 
 // Channel represents the GraphQL type Channel
 type Channel struct {
-	ID           string                `json:"id"`
-	CreatedAt    *time.Time            `json:"createdAt,omitempty"`
-	UpdatedAt    *time.Time            `json:"updatedAt,omitempty"`
-	Name         *string               `json:"name,omitempty"`
-	IsPublic     *bool                 `json:"isPublic,omitempty"`
-	GuestID      *string               `json:"guestID,omitempty"`
-	OwnerID      *string               `json:"ownerID,omitempty"`
-	WorkspaceID  *string               `json:"workspaceID,omitempty"`
-	ChatbotID    *string               `json:"chatbotID,omitempty"`
-	FolderID     *string               `json:"folderID,omitempty"`
-	Messages     MessageConnection     `json:"messages"`
-	Users        UserConnection        `json:"users"`
-	Owner        *User                 `json:"owner,omitempty"`
-	Chatbot      *Chatbot              `json:"chatbot,omitempty"`
-	Folder       *Folder               `json:"folder,omitempty"`
-	ChannelUsers ChannelUserConnection `json:"channelUsers"`
+	ID           string                 `json:"id"`
+	CreatedAt    *time.Time             `json:"createdAt,omitempty"`
+	UpdatedAt    *time.Time             `json:"updatedAt,omitempty"`
+	Name         *string                `json:"name,omitempty"`
+	IsPublic     *bool                  `json:"isPublic,omitempty"`
+	GuestID      *string                `json:"guestID,omitempty"`
+	OwnerID      *string                `json:"ownerID,omitempty"`
+	WorkspaceID  *string                `json:"workspaceID,omitempty"`
+	ChatbotID    *string                `json:"chatbotID,omitempty"`
+	FolderID     *string                `json:"folderID,omitempty"`
+	Messages     *MessageConnection     `json:"messages"`
+	Users        *UserConnection        `json:"users"`
+	Owner        *User                  `json:"owner,omitempty"`
+	Chatbot      *Chatbot               `json:"chatbot,omitempty"`
+	Folder       *Folder                `json:"folder,omitempty"`
+	ChannelUsers *ChannelUserConnection `json:"channelUsers"`
 }
 
 // ChannelConnection A connection to a list of items.
@@ -340,7 +340,7 @@ type ChannelConnection struct {
 	// A list of edges.
 	Edges []*ChannelEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -363,8 +363,8 @@ type ChannelUser struct {
 	ChannelID   string     `json:"channelID"`
 	WorkspaceID *string    `json:"workspaceID,omitempty"`
 	ChatbotID   *string    `json:"chatbotID,omitempty"`
-	User        User       `json:"user"`
-	Channel     Channel    `json:"channel"`
+	User        *User      `json:"user"`
+	Channel     *Channel   `json:"channel"`
 }
 
 // ChannelUserConnection A connection to a list of items.
@@ -373,7 +373,7 @@ type ChannelUserConnection struct {
 	// A list of edges.
 	Edges []*ChannelUserEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -389,47 +389,47 @@ type ChannelUserEdge struct {
 
 // Chatbot represents the GraphQL type Chatbot
 type Chatbot struct {
-	ID                 string                `json:"id"`
-	CreatedAt          *time.Time            `json:"createdAt,omitempty"`
-	UpdatedAt          *time.Time            `json:"updatedAt,omitempty"`
-	Name               *string               `json:"name,omitempty"`
-	ShortDescr         *string               `json:"shortDescr,omitempty"`
-	Active             *bool                 `json:"active,omitempty"`
-	IsPublic           *bool                 `json:"isPublic,omitempty"`
-	Instruction        *string               `json:"instruction,omitempty"`
-	Temperature        *float64              `json:"temperature,omitempty"`
-	OverviewDescr      *string               `json:"overviewDescr,omitempty"`
-	TotalChars         *int                  `json:"totalChars,omitempty"`
-	Text               *string               `json:"text,omitempty"`
-	ColorUserMessage   *string               `json:"colorUserMessage,omitempty"`
-	InitialMessage1    *string               `json:"initialMessage1,omitempty"`
-	InitialMessage2    *string               `json:"initialMessage2,omitempty"`
-	ColorBubble        *string               `json:"colorBubble,omitempty"`
-	ChatButtonAlign    *string               `json:"chatButtonAlign,omitempty"`
-	DisplayName        *string               `json:"displayName,omitempty"`
-	ChatIconURL        *string               `json:"chatIconURL,omitempty"`
-	BotIconURL         *string               `json:"botIconURL,omitempty"`
-	MessagePlaceholder *string               `json:"messagePlaceholder,omitempty"`
-	Footer             *string               `json:"footer,omitempty"`
-	Theme              *string               `json:"theme,omitempty"`
-	AutoShowPopupAfter *int                  `json:"autoShowPopupAfter,omitempty"`
-	AiModelID          *string               `json:"aiModelID,omitempty"`
-	SbyteUserID        *string               `json:"sbyteUserID,omitempty"`
-	AiUserID           *string               `json:"aiUserID,omitempty"`
-	WorkspaceID        *string               `json:"workspaceID,omitempty"`
-	IsFavorite         *bool                 `json:"isFavorite,omitempty"`
-	IsDebug            *bool                 `json:"isDebug,omitempty"`
-	CacheDisabled      *bool                 `json:"cacheDisabled,omitempty"`
-	LeadNameEnabled    *bool                 `json:"leadNameEnabled,omitempty"`
-	LeadEmailEnabled   *bool                 `json:"leadEmailEnabled,omitempty"`
-	LeadPhoneEnabled   *bool                 `json:"leadPhoneEnabled,omitempty"`
-	Users              []User                `json:"users,omitempty"`
-	Channels           []Channel             `json:"channels,omitempty"`
-	Folders            []Folder              `json:"folders,omitempty"`
-	FuncTools          FuncToolConnection    `json:"funcTools"`
-	AiModel            *AiModel              `json:"aiModel,omitempty"`
-	ChatbotUsers       []ChatbotUser         `json:"chatbotUsers,omitempty"`
-	ChatbotTools       ChatbotToolConnection `json:"chatbotTools"`
+	ID                 string                 `json:"id"`
+	CreatedAt          *time.Time             `json:"createdAt,omitempty"`
+	UpdatedAt          *time.Time             `json:"updatedAt,omitempty"`
+	Name               *string                `json:"name,omitempty"`
+	ShortDescr         *string                `json:"shortDescr,omitempty"`
+	Active             *bool                  `json:"active,omitempty"`
+	IsPublic           *bool                  `json:"isPublic,omitempty"`
+	Instruction        *string                `json:"instruction,omitempty"`
+	Temperature        *float64               `json:"temperature,omitempty"`
+	OverviewDescr      *string                `json:"overviewDescr,omitempty"`
+	TotalChars         *int                   `json:"totalChars,omitempty"`
+	Text               *string                `json:"text,omitempty"`
+	ColorUserMessage   *string                `json:"colorUserMessage,omitempty"`
+	InitialMessage1    *string                `json:"initialMessage1,omitempty"`
+	InitialMessage2    *string                `json:"initialMessage2,omitempty"`
+	ColorBubble        *string                `json:"colorBubble,omitempty"`
+	ChatButtonAlign    *string                `json:"chatButtonAlign,omitempty"`
+	DisplayName        *string                `json:"displayName,omitempty"`
+	ChatIconURL        *string                `json:"chatIconURL,omitempty"`
+	BotIconURL         *string                `json:"botIconURL,omitempty"`
+	MessagePlaceholder *string                `json:"messagePlaceholder,omitempty"`
+	Footer             *string                `json:"footer,omitempty"`
+	Theme              *string                `json:"theme,omitempty"`
+	AutoShowPopupAfter *int                   `json:"autoShowPopupAfter,omitempty"`
+	AiModelID          *string                `json:"aiModelID,omitempty"`
+	SbyteUserID        *string                `json:"sbyteUserID,omitempty"`
+	AiUserID           *string                `json:"aiUserID,omitempty"`
+	WorkspaceID        *string                `json:"workspaceID,omitempty"`
+	IsFavorite         *bool                  `json:"isFavorite,omitempty"`
+	IsDebug            *bool                  `json:"isDebug,omitempty"`
+	CacheDisabled      *bool                  `json:"cacheDisabled,omitempty"`
+	LeadNameEnabled    *bool                  `json:"leadNameEnabled,omitempty"`
+	LeadEmailEnabled   *bool                  `json:"leadEmailEnabled,omitempty"`
+	LeadPhoneEnabled   *bool                  `json:"leadPhoneEnabled,omitempty"`
+	Users              []*User                `json:"users,omitempty"`
+	Channels           []*Channel             `json:"channels,omitempty"`
+	Folders            []*Folder              `json:"folders,omitempty"`
+	FuncTools          *FuncToolConnection    `json:"funcTools"`
+	AiModel            *AiModel               `json:"aiModel,omitempty"`
+	ChatbotUsers       []*ChatbotUser         `json:"chatbotUsers,omitempty"`
+	ChatbotTools       *ChatbotToolConnection `json:"chatbotTools"`
 }
 
 // ChatbotConnection A connection to a list of items.
@@ -438,7 +438,7 @@ type ChatbotConnection struct {
 	// A list of edges.
 	Edges []*ChatbotEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -460,8 +460,8 @@ type ChatbotTool struct {
 	FuncToolID  string     `json:"funcToolID"`
 	ChatbotID   string     `json:"chatbotID"`
 	WorkspaceID *string    `json:"workspaceID,omitempty"`
-	FuncTool    FuncTool   `json:"funcTool"`
-	Chatbot     Chatbot    `json:"chatbot"`
+	FuncTool    *FuncTool  `json:"funcTool"`
+	Chatbot     *Chatbot   `json:"chatbot"`
 }
 
 // ChatbotToolConnection A connection to a list of items.
@@ -470,7 +470,7 @@ type ChatbotToolConnection struct {
 	// A list of edges.
 	Edges []*ChatbotToolEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -492,8 +492,8 @@ type ChatbotUser struct {
 	UserID      string     `json:"userID"`
 	ChatbotID   string     `json:"chatbotID"`
 	WorkspaceID *string    `json:"workspaceID,omitempty"`
-	User        User       `json:"user"`
-	Chatbot     Chatbot    `json:"chatbot"`
+	User        *User      `json:"user"`
+	Chatbot     *Chatbot   `json:"chatbot"`
 }
 
 // ChatbotUserConnection A connection to a list of items.
@@ -502,7 +502,7 @@ type ChatbotUserConnection struct {
 	// A list of edges.
 	Edges []*ChatbotUserEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -531,8 +531,8 @@ type CheckoutSessionVerify struct {
 
 // CreateChatbotResponse represents the GraphQL type CreateChatbotResponse
 type CreateChatbotResponse struct {
-	Chatbot   Chatbot   `json:"chatbot"`
-	ItemGroup ItemGroup `json:"itemGroup"`
+	Chatbot   *Chatbot   `json:"chatbot"`
+	ItemGroup *ItemGroup `json:"itemGroup"`
 }
 
 // Credential represents the GraphQL type Credential
@@ -552,7 +552,7 @@ type Credential struct {
 	Secret         *scalars.Password `json:"secret,omitempty"`
 	APIKey         *scalars.Password `json:"apiKey,omitempty"`
 	WorkspaceID    *string           `json:"workspaceID,omitempty"`
-	FuncTools      []FuncTool        `json:"funcTools,omitempty"`
+	FuncTools      []*FuncTool       `json:"funcTools,omitempty"`
 }
 
 // CredentialConnection A connection to a list of items.
@@ -561,7 +561,7 @@ type CredentialConnection struct {
 	// A list of edges.
 	Edges []*CredentialEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -584,7 +584,7 @@ type Folder struct {
 	ChatbotID    *string    `json:"chatbotID,omitempty"`
 	OwnerID      *string    `json:"ownerID,omitempty"`
 	Position     int        `json:"position"`
-	Channels     []Channel  `json:"channels,omitempty"`
+	Channels     []*Channel `json:"channels,omitempty"`
 	Chatbot      *Chatbot   `json:"chatbot,omitempty"`
 	Owner        *User      `json:"owner,omitempty"`
 	ChannelCount int        `json:"channelCount"`
@@ -596,7 +596,7 @@ type FolderConnection struct {
 	// A list of edges.
 	Edges []*FolderEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -628,12 +628,12 @@ type FuncTool struct {
 	ItemGroupID  *string          `json:"itemGroupID,omitempty"`
 	Limit        *int             `json:"limit,omitempty"`
 	WorkspaceID  *string          `json:"workspaceID,omitempty"`
-	Chatbots     []Chatbot        `json:"chatbots,omitempty"`
+	Chatbots     []*Chatbot       `json:"chatbots,omitempty"`
 	Credential   *Credential      `json:"credential,omitempty"`
-	FuncToolLogs []FuncToolLog    `json:"funcToolLogs,omitempty"`
+	FuncToolLogs []*FuncToolLog   `json:"funcToolLogs,omitempty"`
 	AiModel      *AiModel         `json:"aiModel,omitempty"`
 	ItemGroup    *ItemGroup       `json:"itemGroup,omitempty"`
-	ChatbotTools []ChatbotTool    `json:"chatbotTools,omitempty"`
+	ChatbotTools []*ChatbotTool   `json:"chatbotTools,omitempty"`
 }
 
 // FuncToolConnection A connection to a list of items.
@@ -642,7 +642,7 @@ type FuncToolConnection struct {
 	// A list of edges.
 	Edges []*FuncToolEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -679,7 +679,7 @@ type FuncToolLogConnection struct {
 	// A list of edges.
 	Edges []*FuncToolLogEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -713,7 +713,7 @@ type GuestConnection struct {
 	// A list of edges.
 	Edges []*GuestEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -762,7 +762,7 @@ type ItemConnection struct {
 	// A list of edges.
 	Edges []*ItemEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -778,19 +778,19 @@ type ItemEdge struct {
 
 // ItemGroup represents the GraphQL type ItemGroup
 type ItemGroup struct {
-	ID               string                    `json:"id"`
-	CreatedAt        *time.Time                `json:"createdAt,omitempty"`
-	UpdatedAt        *time.Time                `json:"updatedAt,omitempty"`
-	Name             *string                   `json:"name,omitempty"`
-	ShortDescr       *string                   `json:"shortDescr,omitempty"`
-	AiModelID        *string                   `json:"aiModelID,omitempty"`
-	Dims             *int                      `json:"dims,omitempty"`
-	HasPendingItems  *bool                     `json:"hasPendingItems,omitempty"`
-	Locked           *bool                     `json:"locked,omitempty"`
-	WorkspaceID      *string                   `json:"workspaceID,omitempty"`
-	ItemGroupSources ItemGroupSourceConnection `json:"itemGroupSources"`
-	FuncTools        []FuncTool                `json:"funcTools,omitempty"`
-	AiModel          *AiModel                  `json:"aiModel,omitempty"`
+	ID               string                     `json:"id"`
+	CreatedAt        *time.Time                 `json:"createdAt,omitempty"`
+	UpdatedAt        *time.Time                 `json:"updatedAt,omitempty"`
+	Name             *string                    `json:"name,omitempty"`
+	ShortDescr       *string                    `json:"shortDescr,omitempty"`
+	AiModelID        *string                    `json:"aiModelID,omitempty"`
+	Dims             *int                       `json:"dims,omitempty"`
+	HasPendingItems  *bool                      `json:"hasPendingItems,omitempty"`
+	Locked           *bool                      `json:"locked,omitempty"`
+	WorkspaceID      *string                    `json:"workspaceID,omitempty"`
+	ItemGroupSources *ItemGroupSourceConnection `json:"itemGroupSources"`
+	FuncTools        []*FuncTool                `json:"funcTools,omitempty"`
+	AiModel          *AiModel                   `json:"aiModel,omitempty"`
 }
 
 // ItemGroupConnection A connection to a list of items.
@@ -799,7 +799,7 @@ type ItemGroupConnection struct {
 	// A list of edges.
 	Edges []*ItemGroupEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -849,7 +849,7 @@ type ItemGroupSourceConnection struct {
 	// A list of edges.
 	Edges []*ItemGroupSourceEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -906,7 +906,7 @@ type LeadConnection struct {
 	// A list of edges.
 	Edges []*LeadEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -946,7 +946,7 @@ type MessageConnection struct {
 	// A list of edges.
 	Edges []*MessageEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -1018,13 +1018,13 @@ type User struct {
 	Email        *string           `json:"email,omitempty"`
 	IP           *string           `json:"ip,omitempty"`
 	WorkspaceID  *string           `json:"workspaceID,omitempty"`
-	MyChannels   []Channel         `json:"myChannels,omitempty"`
-	Channels     []Channel         `json:"channels,omitempty"`
-	Messages     []Message         `json:"messages,omitempty"`
-	Chatbots     []Chatbot         `json:"chatbots,omitempty"`
-	Folders      []Folder          `json:"folders,omitempty"`
-	ChannelUsers []ChannelUser     `json:"channelUsers,omitempty"`
-	ChatbotUsers []ChatbotUser     `json:"chatbotUsers,omitempty"`
+	MyChannels   []*Channel        `json:"myChannels,omitempty"`
+	Channels     []*Channel        `json:"channels,omitempty"`
+	Messages     []*Message        `json:"messages,omitempty"`
+	Chatbots     []*Chatbot        `json:"chatbots,omitempty"`
+	Folders      []*Folder         `json:"folders,omitempty"`
+	ChannelUsers []*ChannelUser    `json:"channelUsers,omitempty"`
+	ChatbotUsers []*ChatbotUser    `json:"chatbotUsers,omitempty"`
 }
 
 // UserConnection A connection to a list of items.
@@ -1033,7 +1033,7 @@ type UserConnection struct {
 	// A list of edges.
 	Edges []*UserEdge `json:"edges,omitempty"`
 	// Information to aid in pagination.
-	PageInfo PageInfo `json:"pageInfo"`
+	PageInfo *PageInfo `json:"pageInfo"`
 	// Identifies the total count of items in the connection.
 	TotalCount int `json:"totalCount"`
 }
@@ -1049,11 +1049,11 @@ type UserEdge struct {
 
 // WorkspaceAppInstallation represents the GraphQL type WorkspaceAppInstallation
 type WorkspaceAppInstallation struct {
-	ID          string      `json:"id"`
-	App         AppStoreApp `json:"app"`
-	WorkspaceID string      `json:"workspaceId"`
-	Status      string      `json:"status"`
-	InstalledAt time.Time   `json:"installedAt"`
+	ID          string       `json:"id"`
+	App         *AppStoreApp `json:"app"`
+	WorkspaceID string       `json:"workspaceId"`
+	Status      string       `json:"status"`
+	InstalledAt time.Time    `json:"installedAt"`
 }
 
 // WorkspaceDetail represents the GraphQL type WorkspaceDetail

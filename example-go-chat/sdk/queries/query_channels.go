@@ -12,8 +12,13 @@ import (
 )
 
 // ChannelsBuilder builds a query for channels
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ChannelsBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // After sets the after argument

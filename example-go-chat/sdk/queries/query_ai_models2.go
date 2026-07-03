@@ -12,8 +12,13 @@ import (
 )
 
 // AiModels2Builder builds a query for aiModels2
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type AiModels2Builder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // After sets the after argument
