@@ -12,8 +12,13 @@ import (
 )
 
 // ItemGroupSourcesBuilder builds a query for itemGroupSources
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ItemGroupSourcesBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // After sets the after argument

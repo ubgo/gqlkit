@@ -10,8 +10,13 @@ import (
 )
 
 // AvailableAppsBuilder builds a query for availableApps
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type AvailableAppsBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // Select configures which fields to return

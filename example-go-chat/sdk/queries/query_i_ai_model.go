@@ -10,8 +10,13 @@ import (
 )
 
 // IAiModelBuilder builds a query for iAiModel
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type IAiModelBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // ID sets the id argument

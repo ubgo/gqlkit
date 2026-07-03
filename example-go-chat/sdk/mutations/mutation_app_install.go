@@ -10,8 +10,13 @@ import (
 )
 
 // AppInstallMutationBuilder builds a mutation for appInstall
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type AppInstallMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // AppID sets the appId argument

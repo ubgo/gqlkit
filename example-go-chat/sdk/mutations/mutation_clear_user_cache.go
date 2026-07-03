@@ -8,8 +8,13 @@ import (
 )
 
 // ClearUserCacheMutationBuilder builds a mutation for clearUserCache
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ClearUserCacheMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // UserID sets the userID argument

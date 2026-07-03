@@ -10,8 +10,13 @@ import (
 )
 
 // ChatbotFoldersBuilder builds a query for chatbotFolders
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ChatbotFoldersBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // ChatbotID sets the chatbotId argument

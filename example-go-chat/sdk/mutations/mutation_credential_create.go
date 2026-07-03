@@ -11,8 +11,13 @@ import (
 )
 
 // CredentialCreateMutationBuilder builds a mutation for credentialCreate
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type CredentialCreateMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // Input sets the input argument

@@ -10,8 +10,13 @@ import (
 )
 
 // NodesBuilder builds a query for nodes
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type NodesBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // Ids sets the ids argument

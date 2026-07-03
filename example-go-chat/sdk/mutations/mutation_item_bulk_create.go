@@ -11,8 +11,13 @@ import (
 )
 
 // ItemBulkCreateMutationBuilder builds a mutation for itemBulkCreate
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ItemBulkCreateMutationBuilder struct {
 	*builder.BaseBuilder
+	builder.MutationMarker
 }
 
 // ItemGroupID sets the itemGroupID argument

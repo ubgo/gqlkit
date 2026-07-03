@@ -8,8 +8,13 @@ import (
 )
 
 // ICanUserAccessChatbotBuilder builds a query for iCanUserAccessChatbot
+//
+// Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
+// and an op-kind marker (Query / Mutation) so the type only satisfies the
+// matching batch.QueryBatchable / batch.MutationBatchable interface.
 type ICanUserAccessChatbotBuilder struct {
 	*builder.BaseBuilder
+	builder.QueryMarker
 }
 
 // ID sets the id argument
