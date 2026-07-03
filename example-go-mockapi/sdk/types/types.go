@@ -28,22 +28,22 @@ type Todo struct {
 	Done      bool              `json:"done"`
 	Priority  *int              `json:"priority,omitempty"`
 	Tags      []string          `json:"tags"`
-	User      User              `json:"user"`
+	User      *User             `json:"user"`
 	CreatedAt time.Time         `json:"createdAt"`
 	Metadata  *scalars.Metadata `json:"metadata,omitempty"`
 }
 
 // TodoConnection represents the GraphQL type TodoConnection
 type TodoConnection struct {
-	Edges      []TodoEdge `json:"edges"`
-	PageInfo   PageInfo   `json:"pageInfo"`
-	TotalCount int        `json:"totalCount"`
+	Edges      []*TodoEdge `json:"edges"`
+	PageInfo   *PageInfo   `json:"pageInfo"`
+	TotalCount int         `json:"totalCount"`
 }
 
 // TodoEdge represents the GraphQL type TodoEdge
 type TodoEdge struct {
 	Cursor string `json:"cursor"`
-	Node   Todo   `json:"node"`
+	Node   *Todo  `json:"node"`
 }
 
 // User represents the GraphQL type User

@@ -53,7 +53,7 @@ func (g *Generator) generateInputTypes() error {
 			// fmt.Println("InputObject: ", def.Name)
 
 			typeDef := TypeDef{
-				Name:        def.Name,
+				Name:        exportName(def.Name),
 				Description: def.Description,
 				IsInterface: def.Kind == ast.Interface,
 			}
@@ -65,6 +65,9 @@ func (g *Generator) generateInputTypes() error {
 			}
 
 			for _, field := range def.Fields {
+				if skipGenField(field.Name) {
+					continue
+				}
 				goType := g.graphQLToGoType(field.Type)
 				omitempty := !field.Type.NonNull
 				jsonName := field.Name // GraphQL field names are already camelCase

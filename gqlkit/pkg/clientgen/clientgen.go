@@ -275,7 +275,9 @@ func (g *Generator) generateEnums() error {
 
 		if def.Kind == ast.Enum {
 			enumDef := EnumDef{
-				Name:        def.Name,
+				// Exported so cross-package refs (enums.OrderBy) resolve —
+				// GraphQL enum names may be lowercase (Hasura: order_by).
+				Name:        exportName(def.Name),
 				Description: def.Description,
 			}
 			// goutil.PrintToJSON(def)

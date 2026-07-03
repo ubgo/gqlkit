@@ -55,7 +55,9 @@ func buildSchemaScalarMap(schema *ast.Schema, bindings typegql.TypeMap) ScalarDa
 		}
 
 		schemaScalarMap[scalar.Name] = SchemaScalar{
-			Name:        scalar.Name,
+			// Exported so cross-package refs (scalars.Timestamptz) resolve —
+			// GraphQL scalar names may be lowercase (Hasura: timestamptz, uuid).
+			Name:        exportName(scalar.Name),
 			Description: scalar.Description,
 			GoType:      typeMapEntry.GoType,
 			IsBuiltIn:   builtInScalars[scalar.Name],

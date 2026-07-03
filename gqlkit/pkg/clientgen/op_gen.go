@@ -71,9 +71,9 @@ func (g *Generator) resolveOpType(t *ast.Type) string {
 
 	switch def.Kind {
 	case ast.Object, ast.Interface:
-		return "types." + def.Name
+		return "types." + exportName(def.Name)
 	case ast.InputObject:
-		return "inputs." + def.Name
+		return "inputs." + exportName(def.Name)
 	default:
 		return g.namedTypeToGo(name)
 	}
@@ -152,7 +152,7 @@ func (g *Generator) buildOperationBuilderData(opType string, field *ast.FieldDef
 	}
 
 	if isObjReturn {
-		data.SelectorName = returnTypeName + "Fields"
+		data.SelectorName = exportName(returnTypeName) + "Fields"
 	}
 
 	for _, arg := range field.Arguments {
@@ -227,7 +227,7 @@ func (g *Generator) generateOperationFilesForType(opType string, def *ast.Defini
 	}
 
 	for _, field := range def.Fields {
-		if strings.HasPrefix(field.Name, "__") {
+		if skipGenField(field.Name) {
 			continue
 		}
 
@@ -333,7 +333,7 @@ func (g *Generator) generateQueryRootFile() error {
 	sb.WriteString("}\n")
 
 	for _, field := range g.schema.Query.Fields {
-		if strings.HasPrefix(field.Name, "__") {
+		if skipGenField(field.Name) {
 			continue
 		}
 
@@ -381,7 +381,7 @@ func (g *Generator) generateMutationRootFile() error {
 	sb.WriteString("}\n")
 
 	for _, field := range g.schema.Mutation.Fields {
-		if strings.HasPrefix(field.Name, "__") {
+		if skipGenField(field.Name) {
 			continue
 		}
 
