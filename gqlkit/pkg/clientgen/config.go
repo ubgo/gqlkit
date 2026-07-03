@@ -44,6 +44,17 @@ func (c *Config) Validate() error {
 		c.PackageName = "sdk"
 	}
 
+	// The --module (-m) flag is the import path of the generated SDK root.
+	// Every local package (types, enums, scalars, inputs, fields, builder,
+	// graphqlclient, batch) is emitted as "<module>/<pkg>", so Package must
+	// carry it. Without this wiring the -m value was dropped and cross-package
+	// imports came out as "" / "/types", so the generated SDK didn't compile.
+	// The dedicated flag wins over the -p-with-slash convenience and go.mod
+	// auto-detection below.
+	if c.Package == "" && c.ModulePath != "" {
+		c.Package = c.ModulePath
+	}
+
 	// If --package was given as an import path (contains "/"),
 	// use it as the Package import path and extract the package name.
 	if c.Package == "" && strings.Contains(c.PackageName, "/") {
