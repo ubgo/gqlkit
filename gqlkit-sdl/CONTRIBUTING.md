@@ -87,11 +87,11 @@ goreleaser release --snapshot --clean
 Releases are automated via GitHub Actions. To publish a new version:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag gqlkit-sdl@v0.1.0
+git push origin gqlkit-sdl@v0.1.0
 ```
 
-This triggers `.github/workflows/release.yml` which runs GoReleaser to build binaries for all platforms (linux/darwin, amd64/arm64, windows) and creates a GitHub Release.
+This triggers `.github/workflows/release-gqlkit-sdl.yml` which runs GoReleaser to build binaries for all platforms (linux/darwin, amd64/arm64, windows) and creates a GitHub Release.
 
 ## Dependencies
 

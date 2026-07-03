@@ -111,10 +111,12 @@ address {
 
 ## BaseBuilder: Query
 
+`NewBaseBuilder`'s first argument is the `GraphQLClient` used by `ExecuteRaw`. The examples below only build query strings (`BuildQuery` / `GetVariables`), so they pass `nil`; supply a real client when you intend to execute.
+
 ### Query with no arguments and no selection
 
 ```go
-b := builder.NewBaseBuilder("query", "GetViewer", "viewer")
+b := builder.NewBaseBuilder(nil, "query", "GetViewer", "viewer")
 query := b.BuildQuery()
 fmt.Println(query)
 ```
@@ -124,14 +126,13 @@ fmt.Println(query)
 ```graphql
 query GetViewer {
   viewer
-
 }
 ```
 
 ### Query with arguments
 
 ```go
-b := builder.NewBaseBuilder("query", "GetUser", "user")
+b := builder.NewBaseBuilder(nil, "query", "GetUser", "user")
 b.SetArg("id", "user-123", "ID!")
 query := b.BuildQuery()
 vars := b.GetVariables()
@@ -144,7 +145,6 @@ fmt.Println("Variables:", vars)
 ```graphql
 query GetUser($id: ID!) {
   user(id: $id)
-
 }
 ```
 
@@ -153,7 +153,7 @@ query GetUser($id: ID!) {
 ### Query with field selection
 
 ```go
-b := builder.NewBaseBuilder("query", "GetUser", "user")
+b := builder.NewBaseBuilder(nil, "query", "GetUser", "user")
 b.SetArg("id", "user-123", "ID!")
 sel := b.GetSelection()
 sel.AddField("id")
@@ -168,9 +168,9 @@ fmt.Println(query)
 ```graphql
 query GetUser($id: ID!) {
   user(id: $id) {
-  id
-  name
-  email
+    id
+    name
+    email
   }
 }
 ```
@@ -178,7 +178,7 @@ query GetUser($id: ID!) {
 ### Query with nested selection
 
 ```go
-b := builder.NewBaseBuilder("query", "GetUser", "user")
+b := builder.NewBaseBuilder(nil, "query", "GetUser", "user")
 b.SetArg("id", "user-123", "ID!")
 sel := b.GetSelection()
 sel.AddField("id")
@@ -197,13 +197,13 @@ fmt.Println(query)
 ```graphql
 query GetUser($id: ID!) {
   user(id: $id) {
-  id
-  name
-  address {
-    street
-    city
-    zip
-  }
+    id
+    name
+    address {
+      street
+      city
+      zip
+    }
   }
 }
 ```
@@ -211,7 +211,7 @@ query GetUser($id: ID!) {
 ### Query with multiple variables
 
 ```go
-b := builder.NewBaseBuilder("query", "ListProducts", "products")
+b := builder.NewBaseBuilder(nil, "query", "ListProducts", "products")
 b.SetArg("first", 10, "Int")
 b.SetArg("filter", "active", "String")
 sel := b.GetSelection()
@@ -228,8 +228,8 @@ fmt.Println("Variables:", vars)
 ```graphql
 query ListProducts($filter: String, $first: Int) {
   products(filter: $filter, first: $first) {
-  id
-  name
+    id
+    name
   }
 }
 ```
@@ -243,7 +243,7 @@ query ListProducts($filter: String, $first: Int) {
 ### Mutation with input and selection
 
 ```go
-b := builder.NewBaseBuilder("mutation", "CreateUser", "createUser")
+b := builder.NewBaseBuilder(nil, "mutation", "CreateUser", "createUser")
 b.SetArg("input", map[string]interface{}{
 	"name":  "Jane",
 	"email": "jane@example.com",
@@ -263,9 +263,9 @@ fmt.Println("Variables:", vars)
 ```graphql
 mutation CreateUser($input: CreateUserInput!) {
   createUser(input: $input) {
-  id
-  name
-  email
+    id
+    name
+    email
   }
 }
 ```
@@ -275,7 +275,7 @@ mutation CreateUser($input: CreateUserInput!) {
 ### Mutation with multiple arguments
 
 ```go
-b := builder.NewBaseBuilder("mutation", "UpdateProduct", "updateProduct")
+b := builder.NewBaseBuilder(nil, "mutation", "UpdateProduct", "updateProduct")
 b.SetArg("id", "prod-1", "ID!")
 b.SetArg("input", map[string]interface{}{"name": "New Name"}, "UpdateProductInput!")
 sel := b.GetSelection()
@@ -290,8 +290,8 @@ fmt.Println(query)
 ```graphql
 mutation UpdateProduct($id: ID!, $input: UpdateProductInput!) {
   updateProduct(id: $id, input: $input) {
-  id
-  name
+    id
+    name
   }
 }
 ```
@@ -303,7 +303,7 @@ mutation UpdateProduct($id: ID!, $input: UpdateProductInput!) {
 Use `BuildQuery()` and `GetVariables()` with your HTTP client or GraphQL client:
 
 ```go
-b := builder.NewBaseBuilder("query", "GetUser", "user")
+b := builder.NewBaseBuilder(nil, "query", "GetUser", "user")
 b.SetArg("id", "user-123", "ID!")
 b.GetSelection().AddField("id")
 b.GetSelection().AddField("name")
@@ -329,7 +329,7 @@ payload := map[string]interface{}{
 | `AddField(name)` | Add a scalar field |
 | `AddChild(name, child)` | Add a nested selection |
 | `Build(indent int)` | Build selection string with given indent level |
-| `NewBaseBuilder(opType, opName, fieldName)` | New query/mutation builder (`opType`: `"query"` or `"mutation"`) |
+| `NewBaseBuilder(client, opType, opName, fieldName)` | New query/mutation builder (`client`: a `GraphQLClient`; `opType`: `"query"` or `"mutation"`) |
 | `SetArg(name, value, graphqlType)` | Set a variable and its GraphQL type |
 | `GetSelection()` | Get the root field selection to add fields/children |
 | `BuildQuery()` | Build the full operation string |

@@ -92,8 +92,15 @@ clientgents/
 ├── op_gen.go           # Generates queries/, mutations/ (builders, roots, indexes)
 ├── writer.go           # TSWriter - writes raw content (no go/format)
 └── template/
-    ├── ts_scalar.tmpl  # Scalar type alias template
-    └── ts_enums.tmpl   # Enum template
+    ├── ts_scalar.tmpl                # Scalar type alias template
+    ├── ts_enums.tmpl                 # Enum template
+    ├── ts_types.tmpl                 # Object type interfaces
+    ├── ts_inputs.tmpl                # Input type interfaces
+    ├── ts_field_selector.tmpl        # Field selector classes
+    ├── ts_field_selector_index.tmpl  # fields/ barrel index
+    ├── ts_operation.tmpl             # Query/mutation builders
+    ├── ts_operation_root.tmpl        # QueryRoot / MutationRoot
+    └── ts_operation_index.tmpl       # queries/ + mutations/ barrel indexes
 ```
 
 ### Entry Point: `example-ts/cmd/generate/`

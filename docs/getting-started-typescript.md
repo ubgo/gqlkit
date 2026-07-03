@@ -6,7 +6,7 @@ GQLKit generates fully typed TypeScript GraphQL client SDKs from a GraphQL schem
 
 ## Prerequisites
 
-- Go 1.21+ (required for code generation)
+- Go 1.25+ (required for code generation)
 - Node.js 18+
 - A GraphQL API endpoint or `.graphql` schema file
 
@@ -116,7 +116,7 @@ gqlkit generate-ts \
 |------|-------|---------|-------------|
 | `--schema` | `-s` | *(required)* | Path to `.graphql` schema file |
 | `--output` | `-o` | `./sdk` | Output directory for generated SDK |
-| `--config` | `-c` | *(required)* | Path to `config.jsonc` file |
+| `--config` | `-c` | *(optional)* | Path to `config.jsonc` file |
 
 ### Option B — Go script (for more control)
 
@@ -128,7 +128,7 @@ package main
 import (
     "fmt"
 
-    "gqlkit/pkg/clientgents"
+    "github.com/khanakia/gqlkit/gqlkit/pkg/clientgents"
 )
 
 func main() {

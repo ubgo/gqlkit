@@ -16,11 +16,11 @@ sdk/                     Generated SDK (do not edit)
   builder/               FieldSelection + BaseBuilder runtime
   scalars/               Custom scalars (Cursor, Password, JSON, Time, etc.)
   enums/                 Order field enums (ChatbotOrderField, etc.)
-  types/                 ~20 Go structs (Chatbot, Channel, User, etc.)
+  types/                 84 Go structs (Chatbot, Channel, User, etc.)
   inputs/                Input structs for ordering, filtering, etc.
-  fields/                87 field selector files (complex nested types)
-  queries/               47 query builders + QueryRoot
-  mutations/             57 mutation builders + MutationRoot
+  fields/                85 field selector files (complex nested types)
+  queries/               44 query builders + QueryRoot
+  mutations/             54 mutation builders + MutationRoot
 ```
 
 ## Generate
@@ -44,9 +44,9 @@ qr := queries.NewQueryRoot(client)
 // Relay cursor pagination with ordering
 chatbots, _ := qr.Chatbots().
     First(intPtr(10)).
-    OrderBy(&inputs.ChatbotOrder{
+    OrderBy([]inputs.ChatbotOrder{{
         Field: enums.ChatbotOrderFieldCreatedAt,
-    }).
+    }}).
     Select(func(conn *fields.ChatbotConnectionFields) {
         conn.TotalCount().
             Edges(func(e *fields.ChatbotEdgeFields) {
@@ -63,12 +63,12 @@ chatbots, _ := qr.Chatbots().
 
 ## Custom Scalars
 
-Configured in `cmd/generate/config.jsonc`:
+Scalar → Go type bindings in the generated `sdk/scalars/` (`Time` is set in `cmd/generate/config.jsonc`; the rest use generator defaults):
 
 | GraphQL Scalar | Go Type |
 |---------------|---------|
-| `Cursor` | `string` |
+| `Cursor` | `any` |
 | `Time` | `time.Time` |
-| `Password` | `string` |
+| `Password` | `any` |
 | `JSON` | `encoding/json.RawMessage` |
 | `Uint64` | `uint64` |

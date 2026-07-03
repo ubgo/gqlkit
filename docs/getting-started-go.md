@@ -6,7 +6,7 @@ GQLKit generates fully typed GraphQL client SDKs from a GraphQL schema. The gene
 
 ## Prerequisites
 
-- Go 1.21+
+- Go 1.25+
 - A GraphQL API endpoint or `.graphql` schema file
 
 ---
@@ -110,7 +110,8 @@ gqlkit generate \
 |------|-------|---------|-------------|
 | `--schema` | `-s` | *(required)* | Path to `.graphql` schema file |
 | `--output` | `-o` | `./sdk` | Output directory for generated SDK |
-| `--package` | `-p` | `sdk` | Go import path for the generated SDK |
+| `--package` | `-p` | `sdk` | Go package name for the generated SDK |
+| `--module` | `-m` | | Go module path for the generated SDK (e.g., `github.com/user/myapi`) |
 | `--config` | `-c` | | Path to `config.jsonc` file (optional) |
 
 #### Understanding `--package`

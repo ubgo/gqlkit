@@ -28,10 +28,11 @@ gqlkit <command> [flags]
 
 ### Commands
 
-| Command    | Description                              |
-|------------|------------------------------------------|
-| `generate` | Generate Go/TypeScript SDK from a schema |
-| `version`  | Print version and exit                   |
+| Command       | Description                           |
+|---------------|---------------------------------------|
+| `generate`    | Generate Go SDK from a schema         |
+| `generate-ts` | Generate TypeScript SDK from a schema |
+| `version`     | Print version and exit                |
 
 ### Flags (generate)
 

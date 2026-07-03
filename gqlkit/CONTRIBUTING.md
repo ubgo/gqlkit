@@ -19,8 +19,8 @@ SDL schema file (.graphql)
         │
         ▼
    Generated SDK directory:
-     scalars/   enums/   types/   inputs/
-     fields/    queries/   mutations/   builder/
+     scalars/   enums/   types/   inputs/   fields/
+     queries/   mutations/   builder/   graphqlclient/   batch/
 ```
 
 ## Project Structure
@@ -67,6 +67,8 @@ Generates a complete Go module with:
 | `queries/` | Query builder per query field + `QueryRoot` |
 | `mutations/` | Mutation builder per mutation field + `MutationRoot` |
 | `builder/` | Copies of `pkg/builder` runtime files |
+| `graphqlclient/` | Copies of `pkg/graphqlclient` runtime files |
+| `batch/` | Copies of `pkg/batch` runtime files (single-request multi-query batching) |
 
 ### `pkg/clientgents` (TypeScript SDK Generator)
 
@@ -120,11 +122,11 @@ goreleaser release --snapshot --clean
 Releases are automated via GitHub Actions. To publish a new version:
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag gqlkit@v0.2.0
+git push origin gqlkit@v0.2.0
 ```
 
-This triggers `.github/workflows/release.yml` which runs GoReleaser to build binaries for all platforms (linux/darwin, amd64/arm64, windows) and creates a GitHub Release.
+This triggers `.github/workflows/release-gqlkit.yml` which runs GoReleaser to build binaries for all platforms (linux/darwin, amd64/arm64, windows) and creates a GitHub Release.
 
 ## Dependencies
 
