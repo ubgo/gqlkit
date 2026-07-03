@@ -237,7 +237,7 @@ func (g *Generator) collectFieldSelectorTypeImports(def *ast.Definition) (enumIm
 	scalarSeen := make(map[string]bool)
 
 	for _, field := range def.Fields {
-		if strings.HasPrefix(field.Name, "__") {
+		if skipGenField(field.Name) {
 			continue
 		}
 		// Skip object fields (they use generic U, not a concrete type name)

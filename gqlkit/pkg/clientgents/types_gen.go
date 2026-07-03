@@ -52,7 +52,7 @@ func (g *Generator) generateTypes() error {
 		}
 
 		for _, field := range def.Fields {
-			if strings.HasPrefix(field.Name, "__") {
+			if skipGenField(field.Name) {
 				continue
 			}
 			fieldName := field.Name

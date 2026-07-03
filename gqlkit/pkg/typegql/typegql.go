@@ -6,7 +6,6 @@
 package typegql
 
 import (
-	"fmt"
 	"go/types"
 	"strings"
 )
@@ -39,9 +38,27 @@ func AnyType() TypeMapEntry {
 // It converts the model string to a types.Type and sets the GoType, GoPackage, and GoImport fields
 func Build(typeMap TypeMap) TypeMap {
 	for k, v := range typeMap {
+		// An empty Model would panic buildNamedType (nil Universe lookup); a
+		// binding with no Go type maps to `any`, same as an unbound scalar.
+		if v.Model == "" {
+			typeMap[k] = AnyType()
+			continue
+		}
 		t := buildNamedType(v.Model)
 		switch t := t.(type) {
 		case *types.Named:
+			// A bare, non-builtin identifier (e.g. a local type name with no
+			// import path) resolves to a Named with no package. Treat it as a
+			// same-package type: GoType is the bare name, no import — rather
+			// than dereferencing a nil Pkg().
+			if t.Obj().Pkg() == nil {
+				typeMap[k] = TypeMapEntry{
+					Model:    t.Obj().Name(),
+					TypeName: t.Obj().Name(),
+					GoType:   t.Obj().Name(),
+				}
+				continue
+			}
 			typeMap[k] = TypeMapEntry{
 				Model:    t.String(),
 				PkgName:  t.Obj().Pkg().Name(),
@@ -126,6 +143,8 @@ func BuiltInTypes() TypeMap {
 // from the extra field config Type field).
 func buildType(typeString string) types.Type {
 	switch {
+	case typeString == "":
+		return buildNamedType("")
 	case typeString[0] == '*':
 		return types.NewPointer(buildType(typeString[1:]))
 	case strings.HasPrefix(typeString, "[]"):
@@ -144,8 +163,15 @@ func buildType(typeString string) types.Type {
 // https://github.com/99designs/gqlgen/blob/master/plugin/modelgen/models.go#L119
 func buildNamedType(fullName string) types.Type {
 	dotIndex := strings.LastIndex(fullName, ".")
-	if dotIndex == -1 { // builtinType
-		return types.Universe.Lookup(fullName).Type()
+	if dotIndex == -1 { // builtin (int, string, …) or a bare local type name
+		if obj := types.Universe.Lookup(fullName); obj != nil {
+			return obj.Type()
+		}
+		// Not a Go universe builtin (empty string, or an unqualified local type
+		// name like "MyType"): return a Named with no package rather than
+		// dereferencing a nil Universe lookup. Build() detects the nil package
+		// and emits it as a same-package type with no import.
+		return types.NewNamed(types.NewTypeName(0, nil, fullName, nil), nil, nil)
 	}
 
 	// type is pkg.Name
@@ -161,30 +187,4 @@ func buildNamedType(fullName string) types.Type {
 	pkg := types.NewPackage(pkgPath, pkgName)
 	// gqlgen doesn't use some of the fields, so we leave them 0/nil
 	return types.NewNamed(types.NewTypeName(0, pkg, typeName, nil), nil, nil)
-}
-
-// inspectType is a debug helper that prints detailed information about a
-// resolved types.Type value. Not used in production code generation.
-func inspectType(t types.Type) {
-	fmt.Printf("Type: %T\n", t)
-	fmt.Printf("String(): %s\n", t.String())
-
-	switch v := t.(type) {
-	case *types.Named:
-		fmt.Println("--- *types.Named ---")
-		fmt.Printf("  Obj(): %v\n", v.Obj())
-		fmt.Printf("  Obj().Name(): %s\n", v.Obj().Name())
-		if v.Obj().Pkg() != nil {
-			fmt.Printf("  Obj().Pkg().Path(): %s\n", v.Obj().Pkg().Path())
-			fmt.Printf("  Obj().Pkg().Name(): %s\n", v.Obj().Pkg().Name())
-		} else {
-			fmt.Println("  Obj().Pkg(): nil")
-		}
-	case *types.Basic:
-		fmt.Println("--- *types.Basic ---")
-		fmt.Printf("  Name(): %s\n", v.Name())
-		fmt.Printf("  Kind(): %v\n", v.Kind())
-	default:
-		fmt.Printf("Unknown type: %T\n", v)
-	}
 }
