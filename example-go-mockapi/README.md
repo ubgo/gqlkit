@@ -115,5 +115,5 @@ To re-fetch the schema from a running mockapi instance:
 ```bash
 task example-go-mockapi:fetch-schema
 # or manually:
-go run ../gqlkit-sdl -url http://localhost:8081/query -output cmd/generate/schema.graphql
+go run ../gqlkit-sdl fetch --url http://localhost:8081/query --output cmd/generate/schema.graphql
 ```

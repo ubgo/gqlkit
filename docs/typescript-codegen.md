@@ -131,7 +131,7 @@ gqlkit generate-ts \
 | Flag | Short | Required | Default | Description |
 |------|-------|----------|---------|-------------|
 | `--schema` | `-s` | Yes | — | Path to GraphQL SDL file |
-| `--config` | `-c` | Yes | — | Path to config.jsonc file |
+| `--config` | `-c` | No | — | Path to config.jsonc file |
 | `--output` | `-o` | No | `./sdk` | Output directory for generated SDK |
 
 ### Programmatic Usage
@@ -163,11 +163,11 @@ if err := gen.Generate(); err != nil {
 type Config struct {
     SchemaPath string  // Required: path to .graphql SDL file
     OutputDir  string  // Optional: defaults to "./sdk"
-    ConfigPath string  // Required: path to config.jsonc
+    ConfigPath string  // Optional: path to config.jsonc
 }
 ```
 
-`Validate()` enforces required fields and applies the `./sdk` default.
+`Validate()` enforces the required schema path and applies the `./sdk` default.
 
 ### Client Config (config.jsonc)
 
@@ -1514,7 +1514,6 @@ func (w *TSWriter) EnsureDir() error
 ```go
 // Sentinel errors
 ErrSchemaPathRequired = errors.New("schema path is required")
-ErrConfigPathRequired = errors.New("config path is required")
 
 // Contextual errors (wrapped)
 fmt.Errorf("failed to load client config: %w", err)

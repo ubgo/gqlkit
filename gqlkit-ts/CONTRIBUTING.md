@@ -21,6 +21,7 @@ src/
   index.ts             Public API re-exports
   graphqlclient.ts     GraphQLClient, GraphQLErrors, ClientOptions
   builder.ts           FieldSelection, BaseBuilder
+  batch.ts             batch() — merge multiple builders into a single request
 dist/                  Compiled JS + type declarations (generated)
 ```
 
