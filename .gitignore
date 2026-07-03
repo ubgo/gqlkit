@@ -20,7 +20,6 @@ yarn.lock
 
 # ignore Golang related files
 gin-bin
-go.sum
 
 # Other
 trash
@@ -47,3 +46,4 @@ mockapi/tmp
 /CLAUDE.md
 /docsi
 # END repolink
+.claude/settings.local.json
