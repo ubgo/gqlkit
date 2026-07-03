@@ -1,0 +1,22 @@
+# Normalize line endings — keep LF in the repo regardless of OS.
+* text=auto eol=lf
+
+# Binary assets (don't diff/normalize).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+
+# Generated / vendored — collapse in diffs and exclude from language stats so
+# GitHub's language bar reflects the source, not the generated example SDKs.
+*.lock linguist-generated=true
+package-lock.json linguist-generated=true
+go.sum linguist-generated=true
+example-go-mockapi/sdk/** linguist-generated=true
+example-go-chat/sdk/** linguist-generated=true
+example-ts/sdk/** linguist-generated=true
+mockapi/graph/generated.go linguist-generated=true
+mockapi/graph/model/models_gen.go linguist-generated=true
+dist/** linguist-generated=true
