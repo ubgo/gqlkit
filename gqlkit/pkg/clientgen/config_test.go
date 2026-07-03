@@ -1,6 +1,54 @@
 package clientgen
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+// TestValidateDetectsPackageFromGoMod covers the go.mod auto-detection fallback
+// (detectPackagePath / readModulePath): when neither --module nor a slashed
+// --package is given, Package is derived from the current dir's go.mod + the
+// output dir name.
+func TestValidateDetectsPackageFromGoMod(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"),
+		[]byte("module github.com/acme/proj\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+
+	cfg := Config{SchemaPath: "x.graphql", OutputDir: "./sdk", PackageName: "sdk"}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if want := "github.com/acme/proj/sdk"; cfg.Package != want {
+		t.Errorf("Package = %q, want %q", cfg.Package, want)
+	}
+}
+
+// TestValidateDefaults covers the OutputDir / PackageName default application.
+func TestValidateDefaults(t *testing.T) {
+	t.Chdir(t.TempDir()) // no go.mod -> Package stays empty
+	cfg := Config{SchemaPath: "x.graphql"}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if cfg.OutputDir != "./sdk" {
+		t.Errorf("OutputDir default = %q, want ./sdk", cfg.OutputDir)
+	}
+	if cfg.PackageName != "sdk" {
+		t.Errorf("PackageName default = %q, want sdk", cfg.PackageName)
+	}
+}
+
+// TestValidateRequiresSchema covers the required-field guard.
+func TestValidateRequiresSchema(t *testing.T) {
+	cfg := Config{}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("Validate should error when SchemaPath is empty")
+	}
+}
 
 // TestValidateModulePathThreadsIntoPackage pins the regression from issue #4:
 // the -m / --module flag stored its value in Config.ModulePath, but the

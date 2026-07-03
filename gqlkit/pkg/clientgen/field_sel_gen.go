@@ -55,19 +55,6 @@ func isObjectType(schema *ast.Schema, t *ast.Type) bool {
 	return def.Kind == ast.Object || def.Kind == ast.Interface
 }
 
-// toSnakeCase converts PascalCase or CamelCase to snake_case. Used for
-// generating file names from type names (e.g. "ChatbotConnection" -> "chatbot_connection").
-func toSnakeCase(s string) string {
-	var b strings.Builder
-	for i, r := range s {
-		if i > 0 && r >= 'A' && r <= 'Z' {
-			b.WriteByte('_')
-		}
-		b.WriteRune(r)
-	}
-	return strings.ToLower(b.String())
-}
-
 // getSortedObjectTypeNames returns schema object type names (excluding builtin and roots), sorted
 func (g *Generator) getSortedObjectTypeNames() []string {
 	var names []string
@@ -78,6 +65,9 @@ func (g *Generator) getSortedObjectTypeNames() []string {
 		if def.Kind != ast.Object && def.Kind != ast.Interface {
 			continue
 		}
+		// Conventional roots have no data struct (see generateTypes), so no
+		// field selector. Non-conventional roots (QueryRoot) DO get one — other
+		// types can select into them via an object field.
 		if name == "Query" || name == "Mutation" || name == "Subscription" {
 			continue
 		}
@@ -91,7 +81,7 @@ func (g *Generator) getSortedObjectTypeNames() []string {
 func (g *Generator) buildFieldSelectorData(def *ast.Definition) FieldSelectorData {
 	data := FieldSelectorData{
 		TypeName:     def.Name,
-		SelectorName: def.Name + "Fields",
+		SelectorName: exportName(def.Name) + "Fields",
 		Fields:       make([]FieldSelField, 0, len(def.Fields)),
 	}
 
@@ -106,7 +96,7 @@ func (g *Generator) buildFieldSelectorData(def *ast.Definition) FieldSelectorDat
 	}
 
 	for _, field := range def.Fields {
-		if strings.HasPrefix(field.Name, "__") {
+		if skipGenField(field.Name) {
 			continue
 		}
 		baseName := getBaseTypeName(field.Type)
@@ -118,7 +108,7 @@ func (g *Generator) buildFieldSelectorData(def *ast.Definition) FieldSelectorDat
 			IsObject:   isObj,
 		}
 		if isObj {
-			f.NestedSelector = baseName + "Fields"
+			f.NestedSelector = exportName(baseName) + "Fields"
 		}
 		data.Fields = append(data.Fields, f)
 	}

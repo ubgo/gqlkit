@@ -6,9 +6,53 @@ import (
 	"github.com/khanakia/gqlkit/gqlkit/pkg/util"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
+
+// exportName upper-cases the first letter of a GraphQL type name so the
+// generated Go type identifier is EXPORTED and therefore reachable from the
+// other generated packages (queries, inputs, fields, …). GraphQL type names are
+// not required to be capitalized — Hasura emits scalars like `timestamptz` /
+// `uuid` and enums like `order_by` — and an unexported alias (`type timestamptz
+// = any`) referenced cross-package as `scalars.timestamptz` fails to compile
+// with "undefined". Only the first rune is touched, so already-exported names
+// (JSON, DateTime, ID, URL) are returned unchanged and existing SDKs keep their
+// identifiers; only lowercase-led names are lifted. Every definition site and
+// every reference site must route through this, or the two drift apart.
+func exportName(name string) string {
+	if name == "" {
+		return name
+	}
+	// Drop leading underscores so Apollo Federation types (_Service, _Entity,
+	// _Any, _FieldSet) and any other underscore-led name become exported rather
+	// than staying unexported (unreachable cross-package). ToUpper('_') == '_',
+	// so a bare first-letter uppercase wouldn't fix these.
+	trimmed := strings.TrimLeft(name, "_")
+	if trimmed == "" {
+		// All underscores — nothing to export; leave as-is (such fields/types
+		// are dropped by the __/placeholder skips before this is rendered).
+		return name
+	}
+	r := []rune(trimmed)
+	if unicode.IsDigit(r[0]) {
+		// Can't start a Go identifier with a digit; prefix deterministically.
+		return "X" + trimmed
+	}
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
+}
+
+// skipGenField reports whether a field should be omitted from generation. Two
+// cases: introspection meta-fields (__schema / __type / __typename, injected by
+// gqlparser) whose __* types we don't generate, and placeholder fields whose
+// name produces no valid Go identifier — GraphQL allows `_: Int` (a federation
+// "empty type" placeholder), and ToPascalCase("_") == "", which would emit a
+// method/field with no name (`func (q *QueryRoot) () *Builder`).
+func skipGenField(name string) bool {
+	return strings.HasPrefix(name, "__") || util.ToPascalCase(name) == ""
+}
 
 // TypeDef holds the metadata for a single Go struct generated from a GraphQL
 // object or interface type. Interfaces produce marker types with an Is<Name>()
@@ -42,12 +86,48 @@ func (g *Generator) graphQLToGoType(t *ast.Type) string {
 
 	goType := g.resolveType(t)
 
-	// If nullable (not NonNull), make it a pointer (except for slices)
-	if !t.NonNull && !strings.HasPrefix(goType, "[]") {
+	// Slice element pointering is handled in the recursive graphQLToGoType call
+	// on t.Elem, so a []T is returned as-is here.
+	if strings.HasPrefix(goType, "[]") {
+		return goType
+	}
+
+	// Object / input-object fields are ALWAYS pointers, regardless of
+	// nullability. Go forbids value-type cycles (a struct that contains itself
+	// directly or transitively), which GraphQL object graphs routinely have —
+	// e.g. Shopify's ProductVariant -> ...ContextualPricing -> QuantityRule ->
+	// ProductVariant. A pointer breaks the cycle and also naturally models a
+	// nullable object. Slices are already reference types, so []T cycles are
+	// legal and left by value above.
+	if g.isStructKind(t.NamedType) {
+		return "*" + goType
+	}
+
+	// Nullable non-object fields become pointers to distinguish null from zero.
+	if !t.NonNull {
 		goType = "*" + goType
 	}
 
 	return goType
+}
+
+// isStructKind reports whether the named type is generated as a Go struct
+// (a GraphQL object or input object). Fields of such types must be emitted as
+// pointers to break value-type cycles — see graphQLToGoType. Custom-bound types
+// (scalars mapped to time.Time, json.RawMessage, etc.) and everything else are
+// not generated structs.
+func (g *Generator) isStructKind(name string) bool {
+	if name == "" {
+		return false
+	}
+	if _, ok := g.clientConfig.Bindings[name]; ok {
+		return false
+	}
+	def := g.schema.Types[name]
+	if def == nil {
+		return false
+	}
+	return def.Kind == ast.Object || def.Kind == ast.InputObject
 }
 
 // resolveType resolves the base Go type from a GraphQL type
@@ -92,13 +172,13 @@ func (g *Generator) namedTypeToGo(name string) string {
 
 	switch def.Kind {
 	case ast.Scalar:
-		return "scalars." + def.Name
+		return "scalars." + exportName(def.Name)
 	case ast.Enum:
-		return "enums." + def.Name
+		return "enums." + exportName(def.Name)
 	case ast.Object:
-		return def.Name
+		return exportName(def.Name)
 	case ast.InputObject:
-		return def.Name
+		return exportName(def.Name)
 		// case ast.Interface:
 		// 	return def.Name
 		// // TODO: Handle union types
@@ -137,14 +217,21 @@ func (g *Generator) generateTypes() error {
 			continue
 		}
 
-		// Skip Query, Mutation, Subscription root types
+		// Skip the conventional root operation types — they are represented by
+		// the queries/ and mutations/ builder packages, not as data structs.
+		// A schema whose root is named non-conventionally (e.g. Shopify's
+		// "QueryRoot") is NOT skipped: other types can reference it by value
+		// (Job.query: QueryRoot), so its struct + field selector must exist.
+		// Either way, the injected __schema / __type meta-fields are dropped in
+		// the field loop below, so no reference to the ungenerated __Schema /
+		// __Type builtin types leaks out.
 		if def.Kind == ast.Object && (def.Name == "Query" || def.Name == "Mutation" || def.Name == "Subscription") {
 			continue
 		}
 
 		if def.Kind == ast.Object || def.Kind == ast.Interface {
 			typeDef := TypeDef{
-				Name:        def.Name,
+				Name:        exportName(def.Name),
 				Description: def.Description,
 				IsInterface: def.Kind == ast.Interface,
 			}
@@ -156,6 +243,11 @@ func (g *Generator) generateTypes() error {
 			}
 
 			for _, field := range def.Fields {
+				// Skip injected introspection meta-fields and placeholder fields
+				// with no valid Go identifier (see skipGenField).
+				if skipGenField(field.Name) {
+					continue
+				}
 				goType := g.graphQLToGoType(field.Type)
 				omitempty := !field.Type.NonNull
 				jsonName := field.Name // GraphQL field names are already camelCase
@@ -222,13 +314,19 @@ func (g *Generator) collectTypeImports() []string {
 			continue
 		}
 
-		// Skip root types — they are not rendered in types.go
+		// Skip the conventional root types — mirrors generateTypes so import
+		// collection matches what is actually rendered. Non-conventional roots
+		// (QueryRoot) are rendered, so their imports are collected here too,
+		// minus the injected __* meta-fields.
 		if def.Kind == ast.Object && (def.Name == "Query" || def.Name == "Mutation" || def.Name == "Subscription") {
 			continue
 		}
 
 		if def.Kind == ast.Object || def.Kind == ast.Interface {
 			for _, field := range def.Fields {
+				if skipGenField(field.Name) {
+					continue
+				}
 				g.checkTypeForImports(field.Type, imports)
 			}
 		}
