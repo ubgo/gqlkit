@@ -29,10 +29,10 @@ type ClientConfig struct {
 // parsed schema, resolved type bindings, compiled templates, and the file
 // writer. Call New() to create one, then Generate() to produce all output files.
 type Generator struct {
-	config       *Config            // CLI/caller-supplied generation settings
-	schema       *ast.Schema        // parsed and validated GraphQL schema
-	writer       *writer.Writer     // writes formatted Go files to the output directory
-	clientConfig *ClientConfig      // user-specified scalar bindings from config.jsonc
+	config       *Config             // CLI/caller-supplied generation settings
+	schema       *ast.Schema         // parsed and validated GraphQL schema
+	writer       *writer.Writer      // writes formatted Go files to the output directory
+	clientConfig *ClientConfig       // user-specified scalar bindings from config.jsonc
 	templates    *templater.Template // compiled Go code generation templates
 }
 

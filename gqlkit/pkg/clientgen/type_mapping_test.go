@@ -77,12 +77,12 @@ func TestGraphQLToGoTypePointers(t *testing.T) {
 	cases := []struct {
 		typ, field, want string
 	}{
-		{"User", "bestFriend", "*User"},        // NonNull object -> pointer
-		{"User", "manager", "*User"},           // nullable object -> pointer
-		{"User", "friends", "[]*User"},         // [User!] -> slice of pointers
-		{"User", "posts", "[]*Post"},           // [Post!]! -> slice of pointers
-		{"Filter", "nested", "*Filter"},        // recursive input, nullable
-		{"Filter", "req", "*Filter"},           // recursive input, NonNull -> still pointer
+		{"User", "bestFriend", "*User"}, // NonNull object -> pointer
+		{"User", "manager", "*User"},    // nullable object -> pointer
+		{"User", "friends", "[]*User"},  // [User!] -> slice of pointers
+		{"User", "posts", "[]*Post"},    // [Post!]! -> slice of pointers
+		{"Filter", "nested", "*Filter"}, // recursive input, nullable
+		{"Filter", "req", "*Filter"},    // recursive input, NonNull -> still pointer
 	}
 	for _, c := range cases {
 		got := g.graphQLToGoType(fieldType(t, g, c.typ, c.field))

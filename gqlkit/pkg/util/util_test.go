@@ -53,11 +53,11 @@ func TestSplitCamel(t *testing.T) {
 		{"lower to upper once", "createdAt", "created_At"},
 		{"multiple transitions", "oneTwoThree", "one_Two_Three"},
 		{"already snake", "created_at", "created_at"},
-		{"leading upper", "CreatedAt", "Created_At"},          // d(lower)->A(upper) splits
-		{"all caps", "HTTP", "HTTP"},                          // no lower before upper
-		{"acronym then word", "HTTPServer", "HTTPServer"},     // P(upper)->S(upper) no split; no lower->upper
-		{"lower then acronym", "myHTTP", "my_HTTP"},           // y(lower)->H(upper) splits once
-		{"digit before upper", "field1Name", "field1Name"},   // '1' is not lower, so no split before N
+		{"leading upper", "CreatedAt", "Created_At"},       // d(lower)->A(upper) splits
+		{"all caps", "HTTP", "HTTP"},                       // no lower before upper
+		{"acronym then word", "HTTPServer", "HTTPServer"},  // P(upper)->S(upper) no split; no lower->upper
+		{"lower then acronym", "myHTTP", "my_HTTP"},        // y(lower)->H(upper) splits once
+		{"digit before upper", "field1Name", "field1Name"}, // '1' is not lower, so no split before N
 		{"upper then lower", "Ab", "Ab"},
 	}
 	for _, tt := range tests {

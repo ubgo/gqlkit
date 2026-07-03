@@ -41,10 +41,10 @@ func TestMerge(t *testing.T) {
 // named types (with import), Go builtins, and the JSON stdlib type.
 func TestBuildResolvesTypes(t *testing.T) {
 	in := TypeMap{
-		"UUID":     {Model: "github.com/google/uuid.UUID"},
-		"Time":     {Model: "time.Time"},
-		"String":   {Model: "string"},
-		"JSON":     {Model: "encoding/json.RawMessage"},
+		"UUID":   {Model: "github.com/google/uuid.UUID"},
+		"Time":   {Model: "time.Time"},
+		"String": {Model: "string"},
+		"JSON":   {Model: "encoding/json.RawMessage"},
 	}
 	got := Build(in)
 

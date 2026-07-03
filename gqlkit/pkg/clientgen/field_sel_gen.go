@@ -10,7 +10,6 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-
 // FieldSelectorData is the template data for generating a type-safe field
 // selector struct. Each GraphQL object type gets its own selector that wraps
 // builder.FieldSelection with typed methods for each field.

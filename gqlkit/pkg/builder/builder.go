@@ -22,8 +22,8 @@ type GraphQLClient interface {
 // Scalar fields are stored in `fields`; nested object selections are stored in
 // `children`, forming a recursive tree that mirrors the GraphQL selection set.
 type FieldSelection struct {
-	fields   []string                    // leaf/scalar field names
-	children map[string]*FieldSelection  // nested object selections keyed by field name
+	fields   []string                   // leaf/scalar field names
+	children map[string]*FieldSelection // nested object selections keyed by field name
 }
 
 // NewFieldSelection creates a new FieldSelection
@@ -85,13 +85,13 @@ func (fs *FieldSelection) Build(indent int) string {
 // annotations, and the field selection tree. Generated per-operation builders
 // embed *BaseBuilder and add typed setter methods.
 type BaseBuilder struct {
-	client    GraphQLClient              // underlying HTTP transport
-	opType    string                     // "query" or "mutation"
-	opName    string                     // PascalCase operation name used in the query string
-	fieldName string                     // the root field name inside the operation
-	args      map[string]interface{}     // argument values keyed by GraphQL arg name
-	argTypes  map[string]string          // GraphQL type strings keyed by arg name (e.g. "Int!", "[ID!]")
-	selection *FieldSelection            // selected fields for the response
+	client    GraphQLClient          // underlying HTTP transport
+	opType    string                 // "query" or "mutation"
+	opName    string                 // PascalCase operation name used in the query string
+	fieldName string                 // the root field name inside the operation
+	args      map[string]interface{} // argument values keyed by GraphQL arg name
+	argTypes  map[string]string      // GraphQL type strings keyed by arg name (e.g. "Int!", "[ID!]")
+	selection *FieldSelection        // selected fields for the response
 }
 
 // NewBaseBuilder creates a new BaseBuilder

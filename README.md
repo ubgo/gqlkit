@@ -1,5 +1,7 @@
 # GQLKit — GraphQL SDK Generator
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/khanakia/gqlkit/gqlkit.svg)](https://pkg.go.dev/github.com/khanakia/gqlkit/gqlkit) [![Go Report Card](https://goreportcard.com/badge/github.com/khanakia/gqlkit/gqlkit)](https://goreportcard.com/report/github.com/khanakia/gqlkit/gqlkit) [![test](https://github.com/khanakia/gqlkit/actions/workflows/test.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/test.yml) [![lint](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml) ![coverage](https://img.shields.io/badge/coverage-91%25-brightgreen) [![release](https://img.shields.io/github/v/tag/khanakia/gqlkit?sort=semver&filter=gqlkit@*&label=release)](https://github.com/khanakia/gqlkit/tags) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) ![Go](https://img.shields.io/badge/go-1.25-00ADD8?logo=go)
+
 Generate fully typed GraphQL client SDKs for **Go** and **TypeScript** from any GraphQL schema. Built on a **builder pattern** with type-safe field selection — only the fields you select appear in the return type.
 
 ## Install

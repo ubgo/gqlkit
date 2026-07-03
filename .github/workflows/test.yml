@@ -1,0 +1,48 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [gqlkit, gqlkit-sdl]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      # GOWORK=off so each module is tested in isolation, exactly as it ships —
+      # the repo's go.work is only for local cross-module development.
+      - name: Test
+        working-directory: ${{ matrix.module }}
+        env:
+          GOWORK: "off"
+        run: go test ./... -race -cover
+
+  typescript:
+    name: TypeScript (gqlkit-ts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: gqlkit-ts/package-lock.json
+      - working-directory: gqlkit-ts
+        run: npm ci
+      - name: Test
+        working-directory: gqlkit-ts
+        run: npm test

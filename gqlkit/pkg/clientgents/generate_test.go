@@ -139,17 +139,17 @@ func TestGenerateKitchenSink(t *testing.T) {
 	types := read(t, dir, "types/index.ts")
 	mustContain(t, types, "types",
 		"export interface User {",
-		"id: string;",           // ID! -> non-optional string
-		"role: Role;",           // enum, non-null
-		"friends?: User[];",     // [User!] nullable -> optional list
-		"posts: Post[];",        // [Post!]! -> required list
-		"bestFriend?: User;",    // nullable object -> optional
+		"id: string;",        // ID! -> non-optional string
+		"role: Role;",        // enum, non-null
+		"friends?: User[];",  // [User!] nullable -> optional list
+		"posts: Post[];",     // [Post!]! -> required list
+		"bestFriend?: User;", // nullable object -> optional
 		"export interface Post {",
-		"body?: string;",        // nullable String
-		"createdAt: DateTime;",  // custom scalar
-		"meta?: jsonb;",         // custom lowercase scalar
+		"body?: string;",       // nullable String
+		"createdAt: DateTime;", // custom scalar
+		"meta?: jsonb;",        // custom lowercase scalar
 		"export interface Category {",
-		"parent?: Category;",    // recursion
+		"parent?: Category;", // recursion
 		"children: Category[];",
 	)
 	// Query/Mutation roots must NOT leak into types.
@@ -175,14 +175,14 @@ func TestGenerateKitchenSink(t *testing.T) {
 	mustContain(t, userFields, "fields/user.ts",
 		"export class UserFields",
 		`import { FieldSelection } from "../builder";`,
-		"id():",                                       // scalar leaf
+		"id():", // scalar leaf
 		`this.selection.addField("id");`,
-		"role():",                                     // enum scalar leaf
-		"friends<U extends object>",                   // self-ref object -> callback
+		"role():",                   // enum scalar leaf
+		"friends<U extends object>", // self-ref object -> callback
 		`this.selection.addChild("friends", child);`,
-		"posts<U extends object>",                     // object list callback
-		`import { PostFields } from "./post";`,        // cross-type import
-		`import type { Role } from "../enums";`,       // enum import for scalar field
+		"posts<U extends object>",               // object list callback
+		`import { PostFields } from "./post";`,  // cross-type import
+		`import type { Role } from "../enums";`, // enum import for scalar field
 	)
 	// self-reference must NOT self-import (bug 871c081 guard).
 	if strings.Contains(userFields, `from "./user"`) {
@@ -191,7 +191,7 @@ func TestGenerateKitchenSink(t *testing.T) {
 
 	categoryFields := read(t, dir, "fields/category.ts")
 	mustContain(t, categoryFields, "fields/category.ts",
-		"parent<U extends object>",   // recursion as object callback
+		"parent<U extends object>", // recursion as object callback
 		"children<U extends object>",
 	)
 	if strings.Contains(categoryFields, `from "./category"`) {
@@ -308,7 +308,7 @@ type Query { thing: Thing }
 	}
 	scalars := read(t, outDir, "scalars/index.ts")
 	mustContain(t, scalars, "scalars with binding",
-		`from "luxon"`,                                  // external import re-export
-		"export type JSON = Record<string, unknown>;",  // inline alias
+		`from "luxon"`, // external import re-export
+		"export type JSON = Record<string, unknown>;", // inline alias
 	)
 }
