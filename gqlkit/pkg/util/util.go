@@ -138,20 +138,24 @@ func ToSnakeCase(s string) string {
 	if s == "" {
 		return s
 	}
+	// Operate on runes, not bytes: byte indexing splits multi-byte UTF-8
+	// characters (e.g. "café" -> "caf_ã©") because the continuation byte reads
+	// as uppercase Latin-1.
+	rs := []rune(s)
 	var (
 		j int
 		b strings.Builder
 	)
-	for i := 0; i < len(s); i++ {
-		r := rune(s[i])
+	for i := 0; i < len(rs); i++ {
+		r := rs[i]
 		// Insert '_' at word boundaries:
 		// - not at the start or end
 		// - current is uppercase
 		// - previous is lowercase (UserInfo)
 		//   or next is lowercase and previous is a letter (HTTPServer).
-		if i > 0 && i < len(s)-1 && unicode.IsUpper(r) {
-			if unicode.IsLower(rune(s[i-1])) ||
-				j != i-1 && unicode.IsLower(rune(s[i+1])) && unicode.IsLetter(rune(s[i-1])) {
+		if i > 0 && i < len(rs)-1 && unicode.IsUpper(r) {
+			if unicode.IsLower(rs[i-1]) ||
+				j != i-1 && unicode.IsLower(rs[i+1]) && unicode.IsLetter(rs[i-1]) {
 				j = i
 				b.WriteString("_")
 			}

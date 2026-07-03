@@ -10,6 +10,17 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
+// skipGenField reports whether a field should be omitted from TypeScript
+// generation: introspection meta-fields (__schema / __type / __typename) whose
+// __* types are not generated, and placeholder fields whose name yields no
+// usable identifier. GraphQL allows `_: Int` (a federation "empty type"
+// placeholder), and ToPascalCase("_") == "", which would otherwise produce an
+// empty operation name and a generic `Builder` class that collides across
+// multiple such fields. Mirrors clientgen.skipGenField on the Go side.
+func skipGenField(name string) bool {
+	return strings.HasPrefix(name, "__") || util.ToPascalCase(name) == ""
+}
+
 // TSArgumentData describes a single argument on a TypeScript operation builder,
 // including the original GraphQL name, the TS method name, and the TS/GraphQL
 // type strings.
@@ -178,7 +189,7 @@ func (g *Generator) generateOperationFilesForType(opType string, def *ast.Defini
 	}
 
 	for _, field := range def.Fields {
-		if strings.HasPrefix(field.Name, "__") {
+		if skipGenField(field.Name) {
 			continue
 		}
 
@@ -321,7 +332,7 @@ func (g *Generator) buildOperationRootBuilders(opType string, def *ast.Definitio
 	}
 
 	for _, field := range def.Fields {
-		if strings.HasPrefix(field.Name, "__") {
+		if skipGenField(field.Name) {
 			continue
 		}
 		methodName := util.ToPascalCase(field.Name)

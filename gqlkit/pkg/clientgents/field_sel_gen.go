@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -66,7 +65,7 @@ func (g *Generator) buildFieldSelectorData(def *ast.Definition) TSFieldSelectorD
 	importMap := make(map[string]TSFieldImport) // keyed by NestedSelector
 
 	for _, field := range def.Fields {
-		if strings.HasPrefix(field.Name, "__") {
+		if skipGenField(field.Name) {
 			continue
 		}
 		baseName := getBaseTypeName(field.Type)
