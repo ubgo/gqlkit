@@ -4,6 +4,19 @@
 
 Generate fully typed GraphQL client SDKs for **Go** and **TypeScript** from any GraphQL schema. Built on a **builder pattern** with type-safe field selection — only the fields you select appear in the return type.
 
+**Schema-first, not query-first:** generate builders once, then compose queries and mutations in code with dynamic, compile-time-checked field selection — one shared type per GraphQL type, no per-query codegen loop. Works with any GraphQL API, including large real-world schemas (Shopify Admin, Hasura, Apollo Federation).
+
+## Contents
+
+- [Install](#install)
+- [Quick Start — Go](#quick-start--go)
+- [Quick Start — TypeScript](#quick-start--typescript)
+- [Why GQLKit?](#why-gqlkit)
+- [Key Features](#key-features)
+- [FAQ](#faq)
+- [Tools](#tools)
+- [Contributing](#contributing)
+
 ## Install
 
 ```bash
@@ -208,6 +221,32 @@ Deep dive: [docs/ai-friendly.md](./docs/ai-friendly.md)
 | [`gqlkit-ts`](https://www.npmjs.com/package/gqlkit-ts) | npm package — lightweight TypeScript runtime for generated SDKs | [`gqlkit-ts/CHANGELOG.md`](./gqlkit-ts/CHANGELOG.md) |
 
 Each artifact is versioned independently; release notes live in its own changelog. GitHub release pages at <https://github.com/khanakia/gqlkit/releases> mirror the same entries.
+
+## FAQ
+
+**What is gqlkit?**
+A code generator that turns a GraphQL schema (SDL) into a fully typed client SDK for Go and TypeScript. Instead of writing queries as static strings, you compose them in code with a fluent builder and pick fields at call time — the return type narrows to exactly the fields you selected.
+
+**How is gqlkit different from genqlient or GraphQL Code Generator?**
+Those tools are query-first: you write every operation as a `.graphql` string, run codegen, and get a separate type per operation — so two queries that both return a `User` produce two unrelated structs, and changing fields means editing the query and re-running codegen. gqlkit is schema-first: it generates builders once, `User` is always `User`, and you change field selection by changing the `.Select(...)` call. See [Why GQLKit?](#why-gqlkit) for the full comparison.
+
+**Does gqlkit work with large or unconventional schemas (Shopify, Hasura, Apollo Federation)?**
+Yes. The Go generator is verified to produce compiling SDKs for the Shopify Admin API (2,400+ types), Hasura schemas (lowercase scalar/enum names like `timestamptz`, `order_by`), and Apollo Federation types (`_Service`, `_Entity`) — including recursive object graphs and non-conventional query-root names like `QueryRoot`.
+
+**Is the generated Go SDK self-contained?**
+Yes. Each generated Go SDK ships its own `builder/`, `graphqlclient/`, and `batch/` packages — there is no runtime dependency on gqlkit itself. Consumers only need the generated package plus their app code.
+
+**Does it support mutations, batching, and custom scalars?**
+Yes to all three. Mutations use the same builder pattern as queries; `batch.RunQueries` (Go) / `batch()` (TS) merge multiple builders into a single aliased request (one HTTP round trip, partial-success aware); and scalar-to-language-type mappings are configured in a `config.jsonc`.
+
+**Which languages does it generate?**
+Go and TypeScript, from the same schema. The Go and TypeScript SDKs expose the same builder API shape.
+
+**How do I get the schema?**
+Either point gqlkit at an existing `.graphql` SDL file, or fetch it from any live endpoint via introspection with `gqlkit-sdl fetch --url <endpoint>`.
+
+**Is it production-ready?**
+The generators have a two-layer test suite (unit tests on the type mapping plus end-to-end "generate and compile" guards) and CI on every push. The artifacts version independently via SemVer; see each [changelog](#tools).
 
 ## Contributing
 
