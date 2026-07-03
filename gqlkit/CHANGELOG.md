@@ -4,7 +4,7 @@ All notable changes to the `gqlkit` binary. Format: [Keep a Changelog](https://k
 
 Tagged as `gqlkit@vX.Y.Z`. See releases at <https://github.com/khanakia/gqlkit/releases>.
 
-## [Unreleased]
+## [0.10.0] — 2026-07-03
 
 ### Fixed
 - `generate` (Go): the `-m` / `--module` value was dropped, so cross-package imports in the generated SDK came out as `import ( "" )` / `import ( "/types" )` and the SDK didn't compile. `--module` is now threaded into every local package import (`types`, `enums`, `scalars`, `inputs`, `fields`, `builder`, `graphqlclient`, `batch`), each emitted as `<module>/<pkg>`. `go build ./...` on the generated SDK now succeeds. The `cmd/generate` programmatic API (which sets `Package` directly) was unaffected. ([#4](https://github.com/khanakia/gqlkit/issues/4))
@@ -93,6 +93,7 @@ Tagged as `gqlkit@vX.Y.Z`. See releases at <https://github.com/khanakia/gqlkit/r
 - Stable download URLs (no version in artifact names).
 - Generated SDK structure: `types/`, `enums/`, `inputs/`, `scalars/`, `fields/`, `queries/`, `mutations/`, `builder/`.
 
+[0.10.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.10.0
 [0.9.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.9.0
 [0.8.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.8.0
 [0.7.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.7.0
