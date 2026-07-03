@@ -440,8 +440,8 @@ func TestConvertToSDLDefaultRootTypesNoSchemaBlock(t *testing.T) {
 			{Kind: "OBJECT", Name: "User", Fields: []Field{
 				{Name: "id", Type: nonNull(named("SCALAR", "ID"))},
 			}},
-			{Kind: "SCALAR", Name: "String"},           // built-in, skipped
-			{Kind: "OBJECT", Name: "__Type"},            // introspection meta-type, skipped
+			{Kind: "SCALAR", Name: "String"}, // built-in, skipped
+			{Kind: "OBJECT", Name: "__Type"}, // introspection meta-type, skipped
 		},
 	}
 	got := ConvertToSDL(schema)

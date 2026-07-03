@@ -9,8 +9,8 @@ import (
 
 // CLI flag variables bound to the generate command's flags.
 var (
-	schemaPath string
-	outputDir  string
+	schemaPath  string
+	outputDir   string
 	packageName string
 	modulePath  string
 	configPath  string

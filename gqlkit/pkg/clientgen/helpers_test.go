@@ -77,14 +77,14 @@ func TestSkipGenField(t *testing.T) {
 		in   string
 		want bool
 	}{
-		{"__schema", true},  // introspection meta-field
-		{"__type", true},    // introspection meta-field
-		{"__typename", true},// introspection meta-field
-		{"_", true},         // placeholder → ToPascalCase("") empty
-		{"name", false},     // normal field
-		{"id", false},       // normal field
-		{"_service", false}, // Federation field → ToPascalCase = "Service", kept
-		{"order_by", false}, // snake_case field → PascalCases fine
+		{"__schema", true},   // introspection meta-field
+		{"__type", true},     // introspection meta-field
+		{"__typename", true}, // introspection meta-field
+		{"_", true},          // placeholder → ToPascalCase("") empty
+		{"name", false},      // normal field
+		{"id", false},        // normal field
+		{"_service", false},  // Federation field → ToPascalCase = "Service", kept
+		{"order_by", false},  // snake_case field → PascalCases fine
 		{"createdAt", false},
 	}
 	for _, c := range cases {

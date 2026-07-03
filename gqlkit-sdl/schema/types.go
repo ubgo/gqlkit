@@ -63,8 +63,8 @@ type FullType struct {
 type Field struct {
 	Name              string       `json:"name"`
 	Description       *string      `json:"description"`
-	Args              []InputValue `json:"args"`              // Field arguments (may be empty)
-	Type              TypeInfo     `json:"type"`              // Return type of the field
+	Args              []InputValue `json:"args"` // Field arguments (may be empty)
+	Type              TypeInfo     `json:"type"` // Return type of the field
 	IsDeprecated      bool         `json:"isDeprecated"`
 	DeprecationReason *string      `json:"deprecationReason"`
 }

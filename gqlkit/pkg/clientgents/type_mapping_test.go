@@ -89,19 +89,19 @@ func TestFieldTSType(t *testing.T) {
 	cases := []struct {
 		typ, field, want string
 	}{
-		{"User", "id", "string"},            // ID -> string
-		{"User", "count", "number"},         // Int -> number
-		{"User", "ratio", "number"},         // Float -> number
-		{"User", "active", "boolean"},       // Boolean -> boolean
-		{"User", "role", "Role"},            // enum -> name
-		{"User", "at", "DateTime"},          // custom scalar -> alias name
-		{"User", "ts", "timestamptz"},       // Hasura lowercase custom scalar -> name
-		{"User", "bestFriend", "User"},      // object -> name
-		{"User", "manager", "User"},         // nullable object -> name
-		{"User", "friends", "User[]"},       // [User!] -> User[]
-		{"User", "posts", "Post[]"},         // [Post!]! -> Post[]
-		{"User", "tags", "string[]"},        // [String!]! -> string[]
-		{"User", "meta", "Node"},            // interface -> name
+		{"User", "id", "string"},       // ID -> string
+		{"User", "count", "number"},    // Int -> number
+		{"User", "ratio", "number"},    // Float -> number
+		{"User", "active", "boolean"},  // Boolean -> boolean
+		{"User", "role", "Role"},       // enum -> name
+		{"User", "at", "DateTime"},     // custom scalar -> alias name
+		{"User", "ts", "timestamptz"},  // Hasura lowercase custom scalar -> name
+		{"User", "bestFriend", "User"}, // object -> name
+		{"User", "manager", "User"},    // nullable object -> name
+		{"User", "friends", "User[]"},  // [User!] -> User[]
+		{"User", "posts", "Post[]"},    // [Post!]! -> Post[]
+		{"User", "tags", "string[]"},   // [String!]! -> string[]
+		{"User", "meta", "Node"},       // interface -> name
 	}
 	for _, c := range cases {
 		if got := g.fieldTSType(fieldType(t, g, c.typ, c.field)); got != c.want {
@@ -164,7 +164,7 @@ func TestGraphQLToTSArgType(t *testing.T) {
 		{namedType("Role", true), "Role"},
 		{namedType("DateTime", false), "any"}, // custom scalar unmapped -> any
 		{namedType("User", true), "User"},
-		{namedType("Filter", false), "Filter"},   // input object
+		{namedType("Filter", false), "Filter"}, // input object
 		{listType(namedType("Role", true), true), "Role[]"},
 		{listType(namedType("Int", true), false), "number[]"},
 		{nil, "any"},

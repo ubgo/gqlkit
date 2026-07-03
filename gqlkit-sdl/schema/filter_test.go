@@ -37,9 +37,10 @@ func hasType(s *IntrospectionSchema, name string) bool {
 }
 
 // sampleSchema builds a small but representative schema:
-//   Query { users: [User!]!, posts: [Post!]!, taskList: [Task!]! }
-//   Mutation { createUser(input: CreateUserInput!): User, deleteTask(id: ID!): Boolean }
-//   User, Post, Task objects; CreateUserInput input; Orphan object (unreferenced)
+//
+//	Query { users: [User!]!, posts: [Post!]!, taskList: [Task!]! }
+//	Mutation { createUser(input: CreateUserInput!): User, deleteTask(id: ID!): Boolean }
+//	User, Post, Task objects; CreateUserInput input; Orphan object (unreferenced)
 func sampleSchema() *IntrospectionSchema {
 	return &IntrospectionSchema{
 		QueryType:    &TypeRef{Name: "Query"},
