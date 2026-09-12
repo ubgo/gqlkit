@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/khanakia/gqlkit/gqlkit/pkg/clientgents"
 
 	"github.com/spf13/cobra"
@@ -36,7 +37,6 @@ var generateTSCmd = &cobra.Command{
 			return fmt.Errorf("failed to generate TypeScript SDK: %w", err)
 		}
 
-		fmt.Printf("TypeScript SDK generated successfully in %s\n", tsOutputDir)
 		return nil
 	},
 }

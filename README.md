@@ -12,8 +12,8 @@ This repo publishes four artifacts. The two CLIs are what you run; the two runti
 
 | Deliverable | What it is | Install | Docs |
 |---|---|---|---|
-| **`gqlkit`** CLI | Generates a typed Go **or** TypeScript SDK from a GraphQL schema | `curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh \| sh` | [CLI reference](./gqlkit/README.md) |
-| **`gqlkit-sdl`** CLI | Fetches a live endpoint's schema by introspection and writes it as SDL | `curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh \| sh` | [SDL fetcher](./gqlkit-sdl/README.md) |
+| **`gqlkit`** CLI | Generates a typed Go **or** TypeScript SDK from a GraphQL schema | `curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh \| sh` | [CLI reference](./docs/cli-reference.md) |
+| **`gqlkit-sdl`** CLI | Fetches a live endpoint's schema by introspection and writes it as SDL | `curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh \| sh` | [CLI reference](./docs/cli-reference.md#gqlkit-sdl) |
 | **`gqlkit`** Go module | Runtime the generated **Go** SDK imports — builder, client, batching | `go get github.com/khanakia/gqlkit/gqlkit` | [Getting started — Go](./docs/getting-started-go.md) |
 | **`gqlkit-ts`** npm package | Runtime the generated **TypeScript** SDK imports | `npm i gqlkit-ts` | [Getting started — TypeScript](./docs/getting-started-typescript.md) |
 
@@ -24,6 +24,8 @@ This repo publishes four artifacts. The two CLIs are what you run; the two runti
 - [Quick Start — Go](#quick-start--go)
 - [Quick Start — TypeScript](#quick-start--typescript)
 - [Why GQLKit?](#why-gqlkit)
+- [CLI reference](./docs/cli-reference.md)
+- [Recipes](./docs/recipes.md)
 - [Key Features](#key-features)
 - [FAQ](#faq)
 - [Tools](#tools)
@@ -179,7 +181,24 @@ const full  = await qr.todos().select((t) => t.id().text().done().user((u) => u.
 // full.done  → boolean (selected)
 ```
 
-### Comparison
+### Which approach fits the job
+
+Compared by category rather than by product, since the trade-offs belong to the approach and not to any one tool. ✅ built in · ⚠️ possible with work · ❌ not available.
+
+| The job | **Schema-first builder** (GQLKit) | Query-first codegen | Hand-written queries + manual types | Untyped/generic client |
+|---|---|---|---|---|
+| Add a query you did not anticipate | ✅ call the builder | ❌ write the operation, re-run codegen | ❌ write query + types by hand | ✅ but untyped |
+| Vary which fields a call selects | ✅ per call site, type-checked | ❌ a new operation per variant | ⚠️ edit the string and the struct together | ✅ but untyped |
+| Pass one entity type between layers | ✅ one type per GraphQL type | ❌ one type per operation path | ⚠️ whatever you declared | ❌ maps/`any` |
+| Catch a removed schema field at compile time | ✅ | ✅ after regenerating | ❌ fails at run time | ❌ fails at run time |
+| Target Go and TypeScript from one schema | ✅ same generator | ⚠️ a separate tool per language | ❌ written twice | ⚠️ |
+| Start from a live endpoint with no SDL on disk | ✅ `gqlkit-sdl fetch` | ⚠️ depends on the tool | ⚠️ manual introspection | ✅ nothing to generate |
+| Work with a schema of thousands of types | ✅ filter + prune before generating | ⚠️ per-operation output stays small | ✅ you write only what you need | ✅ |
+| Avoid a codegen step in daily work | ✅ regenerate only when the schema changes | ❌ regenerate per query change | ✅ no codegen at all | ✅ |
+
+The honest trade-off: query-first codegen knows each operation ahead of time, so it can validate the exact document you will send and produce a type shaped precisely to it. A builder validates the schema and narrows types at the call site instead. If your queries are a fixed, small set that rarely changes, that difference matters little; if you are composing queries across many call sites, the builder is what stops the type explosion.
+
+### Comparison by tool
 
 | | GQLKit | [genqlient](https://github.com/Khan/genqlient) (Go) | [GraphQL Code Generator](https://the-guild.dev/graphql/codegen) (TS) |
 |---|---|---|---|

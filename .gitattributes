@@ -20,3 +20,11 @@ example-ts/sdk/** linguist-generated=true
 mockapi/graph/generated.go linguist-generated=true
 mockapi/graph/model/models_gen.go linguist-generated=true
 dist/** linguist-generated=true
+
+# Pre-emptive, not describing anything present today: this repo has no
+# testdata/ or .golden fixtures yet. It is a code GENERATOR, so the moment
+# someone adds a byte-exact expected-output fixture, the eol=lf
+# normalisation above would rewrite the expected bytes and fail that test
+# on a CRLF checkout. Declaring it now means the trap never fires.
+**/testdata/** -text
+*.golden -text

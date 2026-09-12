@@ -1,0 +1,45 @@
+# GQLKit
+
+> Generates fully typed GraphQL client SDKs for Go and TypeScript from any GraphQL schema. Schema-first rather than query-first: builders are generated once from the schema, then queries are composed in code with dynamic, compile-time-checked field selection — one shared type per GraphQL type, and no codegen re-run when a call site changes which fields it selects.
+
+Four artifacts ship from this repo. The two CLIs are what a user runs; the two runtimes are what the generated code imports.
+
+| Artifact | Kind | Install |
+|---|---|---|
+| `gqlkit` | CLI — generates a Go or TypeScript SDK from an SDL file | `go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@latest` |
+| `gqlkit-sdl` | CLI — fetches a live endpoint's schema by introspection, writes SDL | `go install github.com/khanakia/gqlkit/gqlkit-sdl@latest` |
+| `github.com/khanakia/gqlkit/gqlkit` | Go module — runtime imported by generated Go SDKs | `go get github.com/khanakia/gqlkit/gqlkit` |
+| `gqlkit-ts` | npm package — runtime imported by generated TypeScript SDKs | `npm i gqlkit-ts` |
+
+## Key facts an assistant gets wrong without reading them
+
+- There is no per-query codegen step. To add a query, call the generated builder; regeneration is only needed when the *schema* changes.
+- Field selection happens at the call site via `.Select(func(f *fields.XFields) { ... })` and narrows the return type. A field that was not selected is a compile error when accessed, in both Go and TypeScript.
+- There is exactly one generated type per GraphQL type. Two queries returning `User` both return `types.User` — not two unrelated structs.
+- `gqlkit generate --module` must be the Go module path of the project being generated into, because the generated packages import one another. `go list -m` is the reliable way to supply it.
+- `--schema` accepts a glob, so a schema split over several files needs no concatenation. A pattern matching nothing exits 1 with `did not match any files`.
+- Both CLIs exit 0 on success and 1 on any failure. There are no per-failure-class exit codes.
+- Generated code is build output. Never hand-edit anything under an `sdk/` directory; change the schema or the templates and regenerate.
+- Batching is queries only. `batch.RunQueries` sends several queries as one aliased document; never mix a mutation in.
+
+## Docs
+
+- [README](./README.md): what ships, quick starts for Go and TypeScript, approach comparison, FAQ
+- [CLI reference](./docs/cli-reference.md): every command and flag with real captured output and exit codes
+- [Recipes](./docs/recipes.md): end-to-end workflows — third-party APIs, trimming huge vendor schemas, dual-language generation, keeping the SDK in sync
+- [Getting started — Go](./docs/getting-started-go.md)
+- [Getting started — TypeScript](./docs/getting-started-typescript.md)
+- [TypeScript codegen internals](./docs/typescript-codegen.md)
+- [AI-friendly design notes](./docs/ai-friendly.md): why a builder suits code assistants better than query-first strings
+- [Releasing](./docs/releasing.md): tag conventions for the nested modules
+- [Contributing](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md): repo layout and the generated-vs-source rule
+
+## Repo layout
+
+- `gqlkit/` — the generator module: CLI in `cmd/gqlkit/`, generators in `pkg/clientgen/` (Go) and `pkg/clientgents/` (TypeScript), templates in `pkg/templater/template/`, runtime in `pkg/builder/`, `pkg/graphqlclient/`, `pkg/batch/`
+- `gqlkit-sdl/` — the introspection fetcher module
+- `gqlkit-ts/` — the TypeScript runtime package
+- `example-go-chat/`, `example-go-mockapi/`, `example-ts/` — worked examples with generated SDKs committed
+- `mockapi/` — a local GraphQL server the examples generate against
+
+Modules are wired together by the root `go.work` for local development; the published modules carry no `replace` directives, so `go install` works from a clean environment.

@@ -370,7 +370,6 @@ func (g *Generator) checkTypeForImports(t *ast.Type, imports map[string]bool) {
 		return
 	}
 
-	fmt.Println("Enum: ", t.NamedType)
 	if g.schema.Types[t.NamedType].Kind == ast.Enum {
 		imports[g.config.Package+"/enums"] = true
 		return
