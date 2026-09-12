@@ -1,6 +1,6 @@
 # GQLKit — GraphQL SDK generator CLI, schema fetcher, and Go + TypeScript runtimes
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/khanakia/gqlkit/gqlkit.svg)](https://pkg.go.dev/github.com/khanakia/gqlkit/gqlkit) [![Go Report Card](https://goreportcard.com/badge/github.com/khanakia/gqlkit/gqlkit)](https://goreportcard.com/report/github.com/khanakia/gqlkit/gqlkit) [![test](https://github.com/khanakia/gqlkit/actions/workflows/test.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/test.yml) [![lint](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml) ![coverage gqlkit](https://img.shields.io/badge/coverage%20gqlkit-91.7%25-brightgreen) ![coverage gqlkit-sdl](https://img.shields.io/badge/coverage%20gqlkit--sdl-96.9%25-brightgreen) [![release](https://img.shields.io/github/v/tag/khanakia/gqlkit?sort=semver&filter=gqlkit@*&label=release)](https://github.com/khanakia/gqlkit/tags) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) ![Go](https://img.shields.io/badge/go-1.25-00ADD8?logo=go)
+[![Go Reference](https://pkg.go.dev/badge/github.com/khanakia/gqlkit/gqlkit.svg)](https://pkg.go.dev/github.com/khanakia/gqlkit/gqlkit) [![Go Report Card](https://goreportcard.com/badge/github.com/khanakia/gqlkit/gqlkit)](https://goreportcard.com/report/github.com/khanakia/gqlkit/gqlkit) [![test](https://github.com/khanakia/gqlkit/actions/workflows/test.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/test.yml) [![lint](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml) ![coverage gqlkit](https://img.shields.io/badge/coverage%20gqlkit-91.7%25-brightgreen) ![coverage gqlkit-sdl](https://img.shields.io/badge/coverage%20gqlkit--sdl-96.6%25-brightgreen) [![release](https://img.shields.io/github/v/tag/khanakia/gqlkit?sort=semver&filter=gqlkit@*&label=release)](https://github.com/khanakia/gqlkit/tags) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) ![Go](https://img.shields.io/badge/go-1.25-00ADD8?logo=go)
 
 Generate fully typed GraphQL client SDKs for **Go** and **TypeScript** from any GraphQL schema. Built on a **builder pattern** with type-safe field selection — only the fields you select appear in the return type.
 
@@ -287,7 +287,7 @@ Coverage is measured per module, because each one is released and consumed separ
 | Module | Statement coverage | Command |
 |---|---|---|
 | `gqlkit` | **91.7%** | `cd gqlkit && GOWORK=off go test -cover ./...` |
-| `gqlkit-sdl` | **96.9%** | `cd gqlkit-sdl && GOWORK=off go test -cover ./...` |
+| `gqlkit-sdl` | **96.6%** | `cd gqlkit-sdl && GOWORK=off go test -cover ./...` |
 
 `GOWORK=off` is deliberate: it resolves each module exactly the way CI and `go install` do, rather than through the workspace. A stale root `vendor/` directory (untracked, gitignored) will otherwise force `-mod=vendor` and fail the run with a missing test dependency.
 
