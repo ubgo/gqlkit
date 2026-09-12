@@ -105,7 +105,7 @@ The tag `gqlkit-sdl@v0.1.0` matches `gqlkit-sdl@v*` in `.github/workflows/releas
   release-gqlkit-sdl.yml      Triggered by gqlkit-sdl@v* tags
 
 gqlkit/
-  .goreleaser.yml             Build config (main: ./cmd/cli, ldflags for version)
+  .goreleaser.yml             Build config (main: ./cmd/gqlkit, ldflags for version)
   install.sh                  Auto-detect install script
 
 gqlkit-sdl/
@@ -187,7 +187,7 @@ ls dist/
 ```bash
 # gqlkit
 cd gqlkit
-go build -ldflags "-s -w -X main.version=v0.2.0" -o gqlkit ./cmd/cli
+go build -ldflags "-s -w -X main.version=v0.2.0" -o gqlkit ./cmd/gqlkit
 ./gqlkit version
 
 # gqlkit-sdl
@@ -199,7 +199,7 @@ go build -ldflags "-s -w -X main.version=v0.1.0" -o gqlkit-sdl .
 ### Run without building
 
 ```bash
-cd gqlkit && go run ./cmd/cli version
+cd gqlkit && go run ./cmd/gqlkit version
 cd gqlkit-sdl && go run . version
 ```
 
@@ -209,7 +209,7 @@ GoReleaser injects the version at build time via ldflags (`-X main.version={{.Ve
 
 | Tool       | Variable       | Location                 | Default |
 |------------|----------------|--------------------------|---------|
-| gqlkit     | `main.version` | `gqlkit/cmd/cli/root.go` | `dev`   |
+| gqlkit     | `main.version` | `gqlkit/cmd/gqlkit/root.go` | `dev`   |
 | gqlkit-sdl | `main.version` | `gqlkit-sdl/main.go`     | `dev`   |
 
 ## Archive Naming

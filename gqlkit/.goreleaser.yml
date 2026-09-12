@@ -4,7 +4,7 @@ project_name: gqlkit
 
 builds:
   - id: gqlkit
-    main: ./cmd/cli
+    main: ./cmd/gqlkit
     binary: gqlkit
     env:
       - CGO_ENABLED=0

@@ -26,7 +26,7 @@ SDL schema file (.graphql)
 ## Project Structure
 
 ```
-cmd/cli/
+cmd/gqlkit/
   main.go              CLI entry point
   root.go              Cobra root command + version
 pkg/
@@ -92,14 +92,14 @@ Lightweight HTTP client for GraphQL endpoints. Supports bearer token auth, custo
 
 ```bash
 cd gqlkit
-go run ./cmd/cli generate --schema path/to/schema.graphql
+go run ./cmd/gqlkit generate --schema path/to/schema.graphql
 ```
 
 ### Build locally
 
 ```bash
 cd gqlkit
-go build -o gqlkit ./cmd/cli
+go build -o gqlkit ./cmd/gqlkit
 ```
 
 ### Run tests

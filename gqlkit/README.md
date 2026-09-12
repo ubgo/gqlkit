@@ -17,8 +17,10 @@ Download the latest release for your platform from [GitHub Releases](https://git
 ### From source
 
 ```bash
-go install gqlkit/cmd/cli@latest
+go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@latest
 ```
+
+`@latest` currently resolves to the newest commit on `main`, not to a release: the published tags use the form `gqlkit@v0.10.0`, and Go only recognises a nested module's versions when the tag is path-prefixed with a slash (`gqlkit/v0.10.0`). Until slash tags are published, pin a commit explicitly if you need a reproducible build, or use the install script above, which reads the GitHub Releases assets and is unaffected.
 
 ## Usage
 
