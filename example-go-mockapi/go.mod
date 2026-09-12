@@ -2,7 +2,7 @@ module example-go-mockapi
 
 go 1.25.5
 
-require github.com/khanakia/gqlkit/gqlkit v0.0.0
+require github.com/khanakia/gqlkit/gqlkit v0.11.0
 
 require (
 	github.com/agnivade/levenshtein v1.2.1 // indirect
@@ -12,5 +12,3 @@ require (
 	github.com/ubgo/goutil v0.1.4 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.32 // indirect
 )
-
-replace github.com/khanakia/gqlkit/gqlkit => ../gqlkit

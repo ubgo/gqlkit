@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/spf13/cobra"
 )
@@ -28,7 +29,7 @@ func init() {
 		Use:   "version",
 		Short: "Print version and exit",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("gqlkit", version)
+			fmt.Println("gqlkit", resolveVersion(version, debug.ReadBuildInfo))
 		},
 	})
 }

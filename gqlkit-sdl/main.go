@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/khanakia/gqlkit/gqlkit-sdl/schema"
@@ -31,7 +32,7 @@ func versionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version and exit",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("gqlkit-sdl", version)
+			fmt.Println("gqlkit-sdl", resolveVersion(version, debug.ReadBuildInfo))
 		},
 	}
 }
