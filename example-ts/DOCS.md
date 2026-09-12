@@ -6,7 +6,6 @@
 
 **Key feature:** The SDK returns **only the selected fields** in the TypeScript return type. When you call `.select(t => t.id().name())`, the `execute()` return type is `{ id: string; name: string }` — not the full interface. Unselected fields are compile-time errors.
 
----
 
 ## Quick Start
 
@@ -30,7 +29,6 @@ go run cmd/generate/main.go
 npx tsc --noEmit
 ```
 
----
 
 ## Testing Commands
 
@@ -72,7 +70,6 @@ find sdk -type d | sort
 npm run samples
 ```
 
----
 
 ## Architecture
 
@@ -112,7 +109,6 @@ cmd/generate/
 └── schema.graphql      # GraphQL SDL input
 ```
 
----
 
 ## Generated SDK Structure
 
@@ -148,7 +144,6 @@ sdk/
     └── ...                 # One file per mutation field
 ```
 
----
 
 ## Generation Pipeline
 
@@ -169,7 +164,6 @@ sdk/
    h. mutations/*.ts         - Mutation builders + root + index
 ```
 
----
 
 ## Type Mapping (GraphQL → TypeScript)
 
@@ -203,7 +197,6 @@ sdk/
 }
 ```
 
----
 
 ## File Naming Conventions
 
@@ -218,7 +211,6 @@ sdk/
 | Interface field names | Original GraphQL name (camelCase) | `createdAt` → `createdAt` |
 | Method names | Original GraphQL name (camelCase) | `totalCount` → `totalCount()` |
 
----
 
 ## Import Strategy
 
@@ -231,7 +223,6 @@ sdk/
 | Enum types | Type-only import | `import type { Role } from "../enums"` |
 | Input types | Type-only import | `import type { NewTodo } from "../inputs"` |
 
----
 
 ## Differences from Go Generator (`clientgen`)
 
@@ -247,7 +238,6 @@ sdk/
 | Type bindings | Go type strings (`"time.Time"`) | TS type strings (`"string"`) |
 | Acronym handling | ID→ID, URL→URL via ent conventions | Not applied (uses GraphQL names directly) |
 
----
 
 ## Reused Code from Go Generator
 
@@ -258,7 +248,6 @@ sdk/
 | `github.com/tidwall/jsonc` | Config loading |
 | `github.com/vektah/gqlparser/v2` | GraphQL AST types |
 
----
 
 ## Runtime Library: `gqlkit-ts`
 
@@ -281,7 +270,6 @@ The generated SDK depends on the `gqlkit-ts` npm package which provides:
   - `execute<T>(query, variables)` — Execute operation, return typed data
   - `rawQuery(query, variables)` — Execute and return raw response
 
----
 
 ## Type-Safe Field Selection
 
@@ -382,7 +370,6 @@ const r2 = await qr.todosConnection().select(c => c.totalCount()).filter({done: 
 // Both return { totalCount: number }
 ```
 
----
 
 ## Testing Commands
 
@@ -455,7 +442,6 @@ cd example-ts
 go build ./cmd/generate/ && rm -rf sdk && go run cmd/generate/main.go && npx tsc --noEmit
 ```
 
----
 
 ## Usage Example (TypeScript)
 

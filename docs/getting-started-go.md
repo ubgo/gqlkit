@@ -2,14 +2,12 @@
 
 GQLKit generates fully typed GraphQL client SDKs from a GraphQL schema. The generated SDK uses a **builder pattern** with type-safe field selection — only selected fields appear in the return type.
 
----
 
 ## Prerequisites
 
 - Go 1.25+
 - A GraphQL API endpoint or `.graphql` schema file
 
----
 
 ## Table of Contents
 
@@ -22,7 +20,6 @@ GQLKit generates fully typed GraphQL client SDKs from a GraphQL schema. The gene
 - [Error Handling](#error-handling)
 - [Client Options](#client-options)
 
----
 
 ## Step 1: Install the CLI tools
 
@@ -40,7 +37,6 @@ curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/insta
 
 Go to [Releases](https://github.com/khanakia/gqlkit/releases) and download the binary for your platform.
 
----
 
 ## Step 2: Get your GraphQL schema
 
@@ -63,7 +59,6 @@ gqlkit-sdl fetch \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
----
 
 ## Step 3: Configure scalar type mappings
 
@@ -87,7 +82,6 @@ Create a `config.jsonc` file to map custom GraphQL scalars to Go types:
 
 Built-in scalars (`String`, `Int`, `Float`, `Boolean`, `ID`) are mapped automatically. You only need to configure custom scalars. Unmapped custom scalars default to `any`.
 
----
 
 ## Step 4: Generate the SDK
 
@@ -196,7 +190,6 @@ Then run it:
 go run cmd/generate/main.go
 ```
 
----
 
 Either option creates the `sdk/` directory with the following packages:
 
@@ -213,7 +206,6 @@ sdk/
 └── types/           # Go struct definitions for GraphQL types
 ```
 
----
 
 ## Step 5: Use the generated SDK
 
@@ -269,7 +261,6 @@ func main() {
 func boolPtr(b bool) *bool { return &b }
 ```
 
----
 
 ## Examples
 
@@ -438,7 +429,6 @@ Rules:
 - Mixing query and mutation builders in one batch is a compile error — use `batch.RunMutations` for mutations.
 - Server-returned errors arrive as `*batch.Error` (use `errors.As`); successful aliases are still decoded into `dest` so partial UI can render.
 
----
 
 ## Error Handling
 
@@ -465,7 +455,6 @@ if err != nil {
 }
 ```
 
----
 
 ## Client Options
 

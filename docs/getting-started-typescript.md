@@ -2,7 +2,6 @@
 
 GQLKit generates fully typed TypeScript GraphQL client SDKs from a GraphQL schema. The generated SDK uses a **builder pattern** with type-safe field selection — only selected fields appear in the return type. Accessing unselected fields is a compile-time error.
 
----
 
 ## Prerequisites
 
@@ -10,7 +9,6 @@ GQLKit generates fully typed TypeScript GraphQL client SDKs from a GraphQL schem
 - Node.js 18+
 - A GraphQL API endpoint or `.graphql` schema file
 
----
 
 ## Table of Contents
 
@@ -24,7 +22,6 @@ GQLKit generates fully typed TypeScript GraphQL client SDKs from a GraphQL schem
 - [Error Handling](#error-handling)
 - [Client Options](#client-options)
 
----
 
 ## Step 1: Install the CLI tools
 
@@ -42,7 +39,6 @@ curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/insta
 
 Go to [Releases](https://github.com/khanakia/gqlkit/releases) and download the binary for your platform.
 
----
 
 ## Step 2: Get your GraphQL schema
 
@@ -65,7 +61,6 @@ gqlkit-sdl fetch \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
----
 
 ## Step 3: Install the runtime library
 
@@ -75,7 +70,6 @@ npm install gqlkit-ts
 
 This provides the runtime classes: `GraphQLClient`, `BaseBuilder`, `FieldSelection`, and `GraphQLErrors`.
 
----
 
 ## Step 4: Configure scalar type mappings
 
@@ -93,7 +87,6 @@ Create a `config.jsonc` file to map custom GraphQL scalars to TypeScript types:
 
 Built-in scalars (`String`, `Int`, `Float`, `Boolean`, `ID`) are mapped automatically. Unmapped custom scalars default to `any`.
 
----
 
 ## Step 5: Generate the SDK
 
@@ -159,7 +152,6 @@ Then run it:
 go run cmd/generate/main.go
 ```
 
----
 
 Either option creates the `sdk/` directory:
 
@@ -185,7 +177,6 @@ sdk/
 └── types/index.ts         # TypeScript interfaces
 ```
 
----
 
 ## Step 6: Use the generated SDK
 
@@ -218,7 +209,6 @@ console.log(todos);
 // Only selected fields are available — accessing unselected fields is a compile-time error
 ```
 
----
 
 ## Examples
 
@@ -325,7 +315,6 @@ Rules:
 - Argument names are namespaced with the alias to avoid collisions.
 - Pass `{ opName: "DashboardLoad" }` as a third argument to override the default `Batch` operation name.
 
----
 
 ## Error Handling
 
@@ -349,7 +338,6 @@ try {
 }
 ```
 
----
 
 ## Client Options
 

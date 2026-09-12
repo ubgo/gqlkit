@@ -13,7 +13,6 @@ Go package for building GraphQL queries and mutations with a fluent API. It prod
 import "your-module/gqlkit/pkg/builder"
 ```
 
-***
 
 ## FieldSelection
 
@@ -107,7 +106,6 @@ address {
 }
 ```
 
-***
 
 ## BaseBuilder: Query
 
@@ -236,7 +234,6 @@ query ListProducts($filter: String, $first: Int) {
 
 **Variables:** `map[filter:active first:10]`
 
-***
 
 ## BaseBuilder: Mutation
 
@@ -296,7 +293,6 @@ mutation UpdateProduct($id: ID!, $input: UpdateProductInput!) {
 }
 ```
 
-***
 
 ## Sending the request
 
@@ -319,7 +315,6 @@ payload := map[string]interface{}{
 // Send payload as JSON to your GraphQL endpoint
 ```
 
-***
 
 ## API summary
 

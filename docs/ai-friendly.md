@@ -2,7 +2,6 @@
 
 AI coding assistants (Copilot, Cursor, Claude) are increasingly writing the majority of application code. GQLKit's architecture is a natural fit for this workflow, while query-first tools like genqlient and GraphQL Code Generator create friction that breaks AI-assisted development.
 
----
 
 ## The problem with query-first tools + AI
 
@@ -50,7 +49,6 @@ const todos = await qr
 
 The AI generates this in one shot. No intermediate steps.
 
----
 
 ## Why the builder pattern works well for AI
 
@@ -102,7 +100,6 @@ When an AI (or human) wants to add a field to a query:
 
 One line change, no rebuild, immediate type safety.
 
----
 
 ## Side-by-side: AI writing the same query
 
@@ -156,7 +153,6 @@ for _, t := range todos {
 
 Compiles immediately. No intermediate step.
 
----
 
 ## Summary
 
