@@ -156,7 +156,8 @@ func FetchSchema(url string, opts *FetchOptions) (*IntrospectionSchema, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	// Body is read in full below; a Close error cannot change that.
+	defer func() { _ = resp.Body.Close() }()
 
 	// Reject non-200 responses with the response body for debugging.
 	if resp.StatusCode != http.StatusOK {

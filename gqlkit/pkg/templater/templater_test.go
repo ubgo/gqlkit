@@ -374,7 +374,7 @@ func TestParseFilesSuccess(t *testing.T) {
 
 func TestAddParseTree(t *testing.T) {
 	src := MustParse(NewTemplate("src").Parse(`{{ define "clone" }}cloned{{ end }}`))
-	tree := src.Lookup("clone").Tree.Copy()
+	tree := src.Lookup("clone").Copy()
 
 	dst := NewTemplate("dst")
 	if _, err := dst.AddParseTree("clone", tree); err != nil {

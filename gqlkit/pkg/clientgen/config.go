@@ -90,7 +90,9 @@ func readModulePath(path string) string {
 	if err != nil {
 		return ""
 	}
-	defer f.Close()
+	// Read-only handle: a Close error cannot affect the parsed result and
+	// there is nothing a caller could do about it.
+	defer func() { _ = f.Close() }()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())

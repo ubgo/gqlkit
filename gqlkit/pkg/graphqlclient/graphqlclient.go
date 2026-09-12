@@ -151,7 +151,9 @@ func (c *Client) Execute(ctx context.Context, query string, variables map[string
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	// Response body is drained below; a Close error cannot change what was
+	// already read.
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -229,7 +231,8 @@ func (c *Client) ExecuteWithPartialData(
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	// See above: the body is read in full below.
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

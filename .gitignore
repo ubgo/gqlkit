@@ -50,3 +50,9 @@ mockapi/tmp
 
 # Coverage profiles written by `task cover` — regenerable, never committed.
 .coverage/
+
+# Debug dump that Generate() used to drop in the cwd; no longer written.
+gqlkit/schema.json
+
+# goreleaser build output.
+dist/

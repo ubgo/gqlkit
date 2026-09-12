@@ -56,5 +56,10 @@ func init() {
 	generateCmd.Flags().StringVarP(&modulePath, "module", "m", "", "Go module path for generated SDK (e.g., github.com/user/myapi)")
 	generateCmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to config.jsonc file (optional)")
 
-	generateCmd.MarkFlagRequired("schema")
+	// Can only fail if the flag above was renamed without updating this
+	// line. Ignoring it would silently make --schema optional and defer the
+	// failure to a confusing parse error at run time.
+	if err := generateCmd.MarkFlagRequired("schema"); err != nil {
+		panic(err)
+	}
 }

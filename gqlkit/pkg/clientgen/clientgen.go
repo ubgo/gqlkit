@@ -11,7 +11,6 @@ import (
 	"github.com/khanakia/gqlkit/gqlkit/pkg/schemagql"
 	"github.com/khanakia/gqlkit/gqlkit/pkg/templater"
 	"github.com/khanakia/gqlkit/gqlkit/pkg/typegql"
-	"github.com/khanakia/gqlkit/gqlkit/pkg/util"
 	"github.com/khanakia/gqlkit/gqlkit/pkg/writer"
 	"sort"
 	"strings"
@@ -94,8 +93,6 @@ func (g *Generator) Generate() error {
 	if err := g.writer.EnsureDir(); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
-
-	util.DumpStructToFile(g.schema, "schema.json")
 
 	// Generate go.mod
 	// if err := g.writer.WriteGoMod(g.config.ModulePath, g.config.PackageName); err != nil {

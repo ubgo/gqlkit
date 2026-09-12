@@ -51,7 +51,7 @@ func TestFetchSchemaSuccess(t *testing.T) {
 			t.Errorf("request body should contain the introspection query, got %q", string(reqBody))
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(body)
+		_, _ = w.Write(body)
 	}))
 	defer srv.Close()
 
@@ -70,7 +70,7 @@ func TestFetchSchemaSuccess(t *testing.T) {
 func TestFetchSchemaNilOpts(t *testing.T) {
 	body := cannedIntrospectionJSON(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(body)
+		_, _ = w.Write(body)
 	}))
 	defer srv.Close()
 
@@ -86,7 +86,7 @@ func TestFetchSchemaNilOpts(t *testing.T) {
 func TestFetchSchemaHTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer srv.Close()
 
@@ -101,7 +101,7 @@ func TestFetchSchemaHTTPError(t *testing.T) {
 
 func TestFetchSchemaMalformedJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("{ not valid json"))
+		_, _ = w.Write([]byte("{ not valid json"))
 	}))
 	defer srv.Close()
 
@@ -123,7 +123,7 @@ func TestFetchSchemaGraphQLErrors(t *testing.T) {
 	}
 	body, _ := json.Marshal(resp)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(body)
+		_, _ = w.Write(body)
 	}))
 	defer srv.Close()
 

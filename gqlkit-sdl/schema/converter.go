@@ -51,28 +51,20 @@ func ConvertToSDL(schema *IntrospectionSchema) string {
 // "Query", "Mutation", "Subscription"). If all root types use the default names,
 // the schema block is omitted since GraphQL infers them by convention.
 func writeSchemaDefinition(sb *strings.Builder, schema *IntrospectionSchema) {
-	hasCustomRootTypes := false
-
-	if schema.QueryType != nil && schema.QueryType.Name != "Query" {
-		hasCustomRootTypes = true
-	}
-	if schema.MutationType != nil && schema.MutationType.Name != "Mutation" {
-		hasCustomRootTypes = true
-	}
-	if schema.SubscriptionType != nil && schema.SubscriptionType.Name != "Subscription" {
-		hasCustomRootTypes = true
-	}
+	hasCustomRootTypes := (schema.QueryType != nil && schema.QueryType.Name != "Query") ||
+		(schema.MutationType != nil && schema.MutationType.Name != "Mutation") ||
+		(schema.SubscriptionType != nil && schema.SubscriptionType.Name != "Subscription")
 
 	if hasCustomRootTypes {
 		sb.WriteString("schema {\n")
 		if schema.QueryType != nil {
-			sb.WriteString(fmt.Sprintf("  query: %s\n", schema.QueryType.Name))
+			fmt.Fprintf(sb, "  query: %s\n", schema.QueryType.Name)
 		}
 		if schema.MutationType != nil {
-			sb.WriteString(fmt.Sprintf("  mutation: %s\n", schema.MutationType.Name))
+			fmt.Fprintf(sb, "  mutation: %s\n", schema.MutationType.Name)
 		}
 		if schema.SubscriptionType != nil {
-			sb.WriteString(fmt.Sprintf("  subscription: %s\n", schema.SubscriptionType.Name))
+			fmt.Fprintf(sb, "  subscription: %s\n", schema.SubscriptionType.Name)
 		}
 		sb.WriteString("}\n\n")
 	}
@@ -104,14 +96,14 @@ func writeScalar(sb *strings.Builder, t FullType) {
 	}
 
 	writeDescription(sb, t.Description, "")
-	sb.WriteString(fmt.Sprintf("scalar %s\n\n", t.Name))
+	fmt.Fprintf(sb, "scalar %s\n\n", t.Name)
 }
 
 // writeObject writes a `type <Name> [implements ...] { fields }` block,
 // including any interfaces the object type implements.
 func writeObject(sb *strings.Builder, t FullType) {
 	writeDescription(sb, t.Description, "")
-	sb.WriteString(fmt.Sprintf("type %s", t.Name))
+	fmt.Fprintf(sb, "type %s", t.Name)
 
 	// Append "implements X & Y" clause if the type implements interfaces.
 	if len(t.Interfaces) > 0 {
@@ -121,7 +113,7 @@ func writeObject(sb *strings.Builder, t FullType) {
 				interfaces[i] = *iface.Name
 			}
 		}
-		sb.WriteString(fmt.Sprintf(" implements %s", strings.Join(interfaces, " & ")))
+		fmt.Fprintf(sb, " implements %s", strings.Join(interfaces, " & "))
 	}
 
 	sb.WriteString(" {\n")
@@ -133,7 +125,7 @@ func writeObject(sb *strings.Builder, t FullType) {
 // Interfaces can implement other interfaces (per the GraphQL spec).
 func writeInterface(sb *strings.Builder, t FullType) {
 	writeDescription(sb, t.Description, "")
-	sb.WriteString(fmt.Sprintf("interface %s", t.Name))
+	fmt.Fprintf(sb, "interface %s", t.Name)
 
 	// Append parent interface implementations if present.
 	if len(t.Interfaces) > 0 {
@@ -143,7 +135,7 @@ func writeInterface(sb *strings.Builder, t FullType) {
 				interfaces[i] = *iface.Name
 			}
 		}
-		sb.WriteString(fmt.Sprintf(" implements %s", strings.Join(interfaces, " & ")))
+		fmt.Fprintf(sb, " implements %s", strings.Join(interfaces, " & "))
 	}
 
 	sb.WriteString(" {\n")
@@ -163,23 +155,23 @@ func writeUnion(sb *strings.Builder, t FullType) {
 		}
 	}
 
-	sb.WriteString(fmt.Sprintf("union %s = %s\n\n", t.Name, strings.Join(types, " | ")))
+	fmt.Fprintf(sb, "union %s = %s\n\n", t.Name, strings.Join(types, " | "))
 }
 
 // writeEnum writes an `enum <Name> { VALUE1 VALUE2 ... }` block, including
 // @deprecated directives on individual enum values when applicable.
 func writeEnum(sb *strings.Builder, t FullType) {
 	writeDescription(sb, t.Description, "")
-	sb.WriteString(fmt.Sprintf("enum %s {\n", t.Name))
+	fmt.Fprintf(sb, "enum %s {\n", t.Name)
 
 	for _, ev := range t.EnumValues {
 		writeDescription(sb, ev.Description, "  ")
-		sb.WriteString(fmt.Sprintf("  %s", ev.Name))
+		fmt.Fprintf(sb, "  %s", ev.Name)
 
 		// Append @deprecated directive with optional reason.
 		if ev.IsDeprecated {
 			if ev.DeprecationReason != nil && *ev.DeprecationReason != "" {
-				sb.WriteString(fmt.Sprintf(" @deprecated(reason: %q)", *ev.DeprecationReason))
+				fmt.Fprintf(sb, " @deprecated(reason: %q)", *ev.DeprecationReason)
 			} else {
 				sb.WriteString(" @deprecated")
 			}
@@ -194,15 +186,15 @@ func writeEnum(sb *strings.Builder, t FullType) {
 // for INPUT_OBJECT types, including default values where specified.
 func writeInputObject(sb *strings.Builder, t FullType) {
 	writeDescription(sb, t.Description, "")
-	sb.WriteString(fmt.Sprintf("input %s {\n", t.Name))
+	fmt.Fprintf(sb, "input %s {\n", t.Name)
 
 	for _, f := range t.InputFields {
 		writeDescription(sb, f.Description, "  ")
-		sb.WriteString(fmt.Sprintf("  %s: %s", f.Name, formatType(f.Type)))
+		fmt.Fprintf(sb, "  %s: %s", f.Name, formatType(f.Type))
 
 		// Append default value literal if one is defined.
 		if f.DefaultValue != nil {
-			sb.WriteString(fmt.Sprintf(" = %s", *f.DefaultValue))
+			fmt.Fprintf(sb, " = %s", *f.DefaultValue)
 		}
 		sb.WriteString("\n")
 	}
@@ -215,18 +207,18 @@ func writeInputObject(sb *strings.Builder, t FullType) {
 func writeFields(sb *strings.Builder, fields []Field) {
 	for _, f := range fields {
 		writeDescription(sb, f.Description, "  ")
-		sb.WriteString(fmt.Sprintf("  %s", f.Name))
+		fmt.Fprintf(sb, "  %s", f.Name)
 
 		if len(f.Args) > 0 {
 			writeArguments(sb, f.Args)
 		}
 
-		sb.WriteString(fmt.Sprintf(": %s", formatType(f.Type)))
+		fmt.Fprintf(sb, ": %s", formatType(f.Type))
 
 		// Append @deprecated directive with optional reason.
 		if f.IsDeprecated {
 			if f.DeprecationReason != nil && *f.DeprecationReason != "" {
-				sb.WriteString(fmt.Sprintf(" @deprecated(reason: %q)", *f.DeprecationReason))
+				fmt.Fprintf(sb, " @deprecated(reason: %q)", *f.DeprecationReason)
 			} else {
 				sb.WriteString(" @deprecated")
 			}
@@ -257,9 +249,9 @@ func writeArguments(sb *strings.Builder, args []InputValue) {
 		sb.WriteString("(\n")
 		for _, arg := range args {
 			writeDescription(sb, arg.Description, "    ")
-			sb.WriteString(fmt.Sprintf("    %s: %s", arg.Name, formatType(arg.Type)))
+			fmt.Fprintf(sb, "    %s: %s", arg.Name, formatType(arg.Type))
 			if arg.DefaultValue != nil {
-				sb.WriteString(fmt.Sprintf(" = %s", *arg.DefaultValue))
+				fmt.Fprintf(sb, " = %s", *arg.DefaultValue)
 			}
 			sb.WriteString("\n")
 		}
@@ -283,7 +275,7 @@ func writeArguments(sb *strings.Builder, args []InputValue) {
 // writeDirective writes a `directive @<name>(...) on LOCATION | LOCATION` declaration.
 func writeDirective(sb *strings.Builder, d Directive) {
 	writeDescription(sb, d.Description, "")
-	sb.WriteString(fmt.Sprintf("directive @%s", d.Name))
+	fmt.Fprintf(sb, "directive @%s", d.Name)
 
 	if len(d.Args) > 0 {
 		writeArguments(sb, d.Args)
@@ -309,15 +301,15 @@ func writeDescription(sb *strings.Builder, description *string, indent string) {
 	desc := *description
 	if strings.Contains(desc, "\n") {
 		// Multi-line block string format.
-		sb.WriteString(fmt.Sprintf("%s\"\"\"\n", indent))
+		fmt.Fprintf(sb, "%s\"\"\"\n", indent)
 		lines := strings.Split(desc, "\n")
 		for _, line := range lines {
-			sb.WriteString(fmt.Sprintf("%s%s\n", indent, line))
+			fmt.Fprintf(sb, "%s%s\n", indent, line)
 		}
-		sb.WriteString(fmt.Sprintf("%s\"\"\"\n", indent))
+		fmt.Fprintf(sb, "%s\"\"\"\n", indent)
 	} else {
 		// Single-line string literal format.
-		sb.WriteString(fmt.Sprintf("%s\"%s\"\n", indent, escapeString(desc)))
+		fmt.Fprintf(sb, "%s\"%s\"\n", indent, escapeString(desc))
 	}
 }
 

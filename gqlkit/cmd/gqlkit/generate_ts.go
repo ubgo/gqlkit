@@ -46,5 +46,8 @@ func init() {
 	generateTSCmd.Flags().StringVarP(&tsOutputDir, "output", "o", "./sdk", "Output directory for generated SDK")
 	generateTSCmd.Flags().StringVarP(&tsConfigPath, "config", "c", "", "Path to config.jsonc file (optional)")
 
-	generateTSCmd.MarkFlagRequired("schema")
+	// See generate.go: a failure here means the flag was renamed.
+	if err := generateTSCmd.MarkFlagRequired("schema"); err != nil {
+		panic(err)
+	}
 }

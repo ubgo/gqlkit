@@ -143,7 +143,11 @@ Examples:
 	cmd.Flags().StringSliceVar(&excludeQueries, "exclude-queries", nil, "Remove these query fields (comma-separated)")
 	cmd.Flags().StringSliceVar(&excludeMutations, "exclude-mutations", nil, "Remove these mutation fields (comma-separated)")
 	cmd.Flags().BoolVar(&removeUnused, "remove-unused", false, "Remove types/inputs not referenced by remaining operations")
-	cmd.MarkFlagRequired("url")
+	// Can only fail if --url was renamed without updating this line.
+	// Ignoring it would silently make the flag optional.
+	if err := cmd.MarkFlagRequired("url"); err != nil {
+		panic(err)
+	}
 
 	return cmd
 }

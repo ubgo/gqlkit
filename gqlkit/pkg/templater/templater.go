@@ -93,9 +93,9 @@ func formatDesc(name, desc string) string {
 			continue
 		}
 		if i == 0 {
-			result.WriteString(fmt.Sprintf("// %s %s\n", name, line))
+			fmt.Fprintf(&result, "// %s %s\n", name, line)
 		} else {
-			result.WriteString(fmt.Sprintf("// %s\n", line))
+			fmt.Fprintf(&result, "// %s\n", line)
 		}
 	}
 

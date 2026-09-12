@@ -208,10 +208,9 @@ func (g *Generator) fieldTSType(t *ast.Type) string {
 // fieldTSTypeStr builds a full TypeScript interface field declaration string
 // like "field?: Type;" or "field: Type;" based on nullability.
 func (g *Generator) fieldTSTypeStr(fieldName string, t *ast.Type) string {
+	// List types are fully resolved by fieldTSType, including element
+	// nullability, so there is nothing extra to do for t.Elem here.
 	tsType := g.fieldTSType(t)
-	if t.Elem != nil {
-		// Already handled in fieldTSType
-	}
 
 	optional := !t.NonNull
 	if optional {

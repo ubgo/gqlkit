@@ -238,7 +238,7 @@ func TestRunQueries_DeterministicAliasOrder(t *testing.T) {
 	idxA := strings.Index(q1, "a:")
 	idxB := strings.Index(q1, "b:")
 	idxC := strings.Index(q1, "c:")
-	if !(idxA >= 0 && idxA < idxB && idxB < idxC) {
+	if idxA < 0 || idxA >= idxB || idxB >= idxC {
 		t.Errorf("aliases not in sorted order: a=%d b=%d c=%d\n%s", idxA, idxB, idxC, q1)
 	}
 }

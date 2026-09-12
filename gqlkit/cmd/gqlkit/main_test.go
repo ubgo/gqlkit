@@ -13,7 +13,8 @@ type User { id: ID! name: String friend: User }
 `
 
 // writeSchema writes a minimal SDL to a temp file and returns its path. It also
-// chdirs into the temp dir because Generate() drops a schema.json in the cwd.
+// chdirs into the temp dir so generated output lands there and cannot
+// collide with the repo working tree.
 func writeSchema(t *testing.T) (dir, schemaPath string) {
 	t.Helper()
 	dir = t.TempDir()

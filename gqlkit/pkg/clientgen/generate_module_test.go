@@ -29,8 +29,8 @@ type ShopPlan { displayName: String }
 func TestGenerateWithModulePathCompiles(t *testing.T) {
 	const modulePath = "example.com/shopgql"
 
-	// Generate() writes a schema.json into the working directory as a side
-	// effect, so run the whole test from a temp cwd to avoid polluting the repo.
+	// Run the whole test from a temp cwd so generated output cannot land in
+	// the repo working tree.
 	work := t.TempDir()
 	t.Chdir(work)
 
