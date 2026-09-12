@@ -18,10 +18,10 @@ Download the latest release for your platform from [GitHub Releases](https://git
 
 ```bash
 go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@latest   # newest release
-go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@v0.11.0  # pinned
+go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@v0.12.0  # pinned
 ```
 
-Releases consumable by Go are tagged in the path-prefixed form Go requires for a nested module (`gqlkit/v0.11.0`), starting at v0.11.0. The `gqlkit@vX.Y.Z` tags are what GitHub Releases and the install script above use; both forms point at the same commits, and `gqlkit version` reports the module version it was built from either way.
+Releases consumable by Go are tagged in the path-prefixed form Go requires for a nested module (`gqlkit/v0.12.0`), starting at v0.11.0. The `gqlkit@vX.Y.Z` tags are what GitHub Releases and the install script above use; both forms point at the same commits, and `gqlkit version` reports the module version it was built from either way.
 
 ## Usage
 
