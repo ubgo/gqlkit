@@ -47,3 +47,6 @@ mockapi/tmp
 /docsi
 # END repolink
 .claude/settings.local.json
+
+# Coverage profiles written by `task cover` — regenerable, never committed.
+.coverage/

@@ -1,13 +1,25 @@
-# GQLKit — GraphQL SDK Generator
+# GQLKit — GraphQL SDK generator CLI, schema fetcher, and Go + TypeScript runtimes
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/khanakia/gqlkit/gqlkit.svg)](https://pkg.go.dev/github.com/khanakia/gqlkit/gqlkit) [![Go Report Card](https://goreportcard.com/badge/github.com/khanakia/gqlkit/gqlkit)](https://goreportcard.com/report/github.com/khanakia/gqlkit/gqlkit) [![test](https://github.com/khanakia/gqlkit/actions/workflows/test.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/test.yml) [![lint](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml) ![coverage](https://img.shields.io/badge/coverage-91%25-brightgreen) [![release](https://img.shields.io/github/v/tag/khanakia/gqlkit?sort=semver&filter=gqlkit@*&label=release)](https://github.com/khanakia/gqlkit/tags) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) ![Go](https://img.shields.io/badge/go-1.25-00ADD8?logo=go)
+[![Go Reference](https://pkg.go.dev/badge/github.com/khanakia/gqlkit/gqlkit.svg)](https://pkg.go.dev/github.com/khanakia/gqlkit/gqlkit) [![Go Report Card](https://goreportcard.com/badge/github.com/khanakia/gqlkit/gqlkit)](https://goreportcard.com/report/github.com/khanakia/gqlkit/gqlkit) [![test](https://github.com/khanakia/gqlkit/actions/workflows/test.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/test.yml) [![lint](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml) ![coverage gqlkit](https://img.shields.io/badge/coverage%20gqlkit-91.7%25-brightgreen) ![coverage gqlkit-sdl](https://img.shields.io/badge/coverage%20gqlkit--sdl-96.9%25-brightgreen) [![release](https://img.shields.io/github/v/tag/khanakia/gqlkit?sort=semver&filter=gqlkit@*&label=release)](https://github.com/khanakia/gqlkit/tags) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) ![Go](https://img.shields.io/badge/go-1.25-00ADD8?logo=go)
 
 Generate fully typed GraphQL client SDKs for **Go** and **TypeScript** from any GraphQL schema. Built on a **builder pattern** with type-safe field selection — only the fields you select appear in the return type.
 
 **Schema-first, not query-first:** generate builders once, then compose queries and mutations in code with dynamic, compile-time-checked field selection — one shared type per GraphQL type, no per-query codegen loop. Works with any GraphQL API, including large real-world schemas (Shopify Admin, Hasura, Apollo Federation).
 
+## What ships here
+
+This repo publishes four artifacts. The two CLIs are what you run; the two runtimes are what the code they generate imports.
+
+| Deliverable | What it is | Install | Docs |
+|---|---|---|---|
+| **`gqlkit`** CLI | Generates a typed Go **or** TypeScript SDK from a GraphQL schema | `curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh \| sh` | [CLI reference](./gqlkit/README.md) |
+| **`gqlkit-sdl`** CLI | Fetches a live endpoint's schema by introspection and writes it as SDL | `curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh \| sh` | [SDL fetcher](./gqlkit-sdl/README.md) |
+| **`gqlkit`** Go module | Runtime the generated **Go** SDK imports — builder, client, batching | `go get github.com/khanakia/gqlkit/gqlkit` | [Getting started — Go](./docs/getting-started-go.md) |
+| **`gqlkit-ts`** npm package | Runtime the generated **TypeScript** SDK imports | `npm i gqlkit-ts` | [Getting started — TypeScript](./docs/getting-started-typescript.md) |
+
 ## Contents
 
+- [What ships here](#what-ships-here)
 - [Install](#install)
 - [Quick Start — Go](#quick-start--go)
 - [Quick Start — TypeScript](#quick-start--typescript)
@@ -15,6 +27,7 @@ Generate fully typed GraphQL client SDKs for **Go** and **TypeScript** from any 
 - [Key Features](#key-features)
 - [FAQ](#faq)
 - [Tools](#tools)
+- [Testing and coverage](#testing-and-coverage)
 - [Contributing](#contributing)
 
 ## Install
@@ -247,6 +260,28 @@ Either point gqlkit at an existing `.graphql` SDL file, or fetch it from any liv
 
 **Is it production-ready?**
 The generators have a two-layer test suite (unit tests on the type mapping plus end-to-end "generate and compile" guards) and CI on every push. The artifacts version independently via SemVer; see each [changelog](#tools).
+
+## Testing and coverage
+
+Coverage is measured per module, because each one is released and consumed separately. Run `task cover` to reproduce these numbers; they are read from the profile, not rounded by hand.
+
+| Module | Statement coverage | Command |
+|---|---|---|
+| `gqlkit` | **91.7%** | `cd gqlkit && GOWORK=off go test -cover ./...` |
+| `gqlkit-sdl` | **96.9%** | `cd gqlkit-sdl && GOWORK=off go test -cover ./...` |
+
+`GOWORK=off` is deliberate: it resolves each module exactly the way CI and `go install` do, rather than through the workspace. A stale root `vendor/` directory (untracked, gitignored) will otherwise force `-mod=vendor` and fail the run with a missing test dependency.
+
+Four functions report 0% and stay that way for reasons that no additional test can change:
+
+| Function | Why it cannot be covered |
+|---|---|
+| `gqlkit/cmd/gqlkit/root.go:main` | Process entry point — calls `os.Exit`, so executing it ends the test binary. Everything it dispatches to is covered through `cmd/gqlkit`'s own tests. |
+| `gqlkit-sdl/main.go:main` | Same: `os.Exit` wrapper around the covered `fetch` command. |
+| `builder.QueryMarker.IsQueryOp` | Empty marker method (`func (QueryMarker) IsQueryOp() {}`). It has zero statements, and statement coverage counts statements — the figure cannot rise above 0% even though `pkg/builder`'s tests call it on every run. |
+| `builder.MutationMarker.IsMutationOp` | Same — the dual marker, also a zero-statement body. |
+
+The markers are still pinned: `pkg/builder/marker_test.go` asserts, at compile time, that each type satisfies the interface `pkg/batch` requires, and that the two markers remain distinct types. That check matters because the interface is satisfied in *generated* SDKs — renaming a marker would leave this module green while every generated batch call site stopped compiling.
 
 ## Contributing
 

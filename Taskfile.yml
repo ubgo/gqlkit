@@ -157,3 +157,47 @@ tasks:
           echo ">> Updating '$d'"
           (cd "$d" && go get -u ./... && go mod tidy)
         done
+
+  # Docs + quality gates
+  docs:check:
+    desc: Verify markdown — relative links resolve, anchors match GitHub slugs, no thematic breaks, no hard-wrapped prose
+    cmds:
+      - python3 scripts/check-docs.py
+
+  test:cover:
+    desc: Per-module coverage summary (GOWORK=off so each module resolves exactly as CI and `go install` do)
+    cmds:
+      - |
+        set -e
+        mkdir -p .coverage
+        for d in gqlkit gqlkit-sdl; do
+          echo ">> $d"
+          (cd "$d" && GOWORK=off go test -coverprofile=../.coverage/$d.out -covermode=atomic ./... >/dev/null && GOWORK=off go tool cover -func=../.coverage/$d.out | tail -1)
+        done
+
+  test:cover:html:
+    desc: Open the per-module coverage profile in a browser
+    cmds:
+      - task: test:cover
+      - |
+        set -e
+        for d in gqlkit gqlkit-sdl; do
+          go tool cover -html=.coverage/$d.out -o .coverage/$d.html
+        done
+        echo "wrote .coverage/gqlkit.html .coverage/gqlkit-sdl.html"
+
+  test:uncovered:
+    desc: List every statement with 0% coverage, worst files first — the work queue for pinning tests
+    cmds:
+      - task: test:cover
+      - |
+        set -e
+        for d in gqlkit gqlkit-sdl; do
+          echo ">> $d uncovered"
+          go tool cover -func=.coverage/$d.out | awk '$3 == "0.0%"' || true
+        done
+
+  cover:
+    desc: Coverage across every module in the workspace
+    cmds:
+      - task: test:cover
