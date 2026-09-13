@@ -6,20 +6,37 @@ Generate fully typed GraphQL client SDKs for **Go** and **TypeScript** from any 
 
 **Schema-first, not query-first:** generate builders once, then compose queries and mutations in code with dynamic, compile-time-checked field selection — one shared type per GraphQL type, no per-query codegen loop. Works with any GraphQL API, including large real-world schemas (Shopify Admin, Hasura, Apollo Federation).
 
-## What ships here
+## Install
 
-This repo publishes four artifacts. The two CLIs are what you run; the two runtimes are what the code they generate imports.
+Four artifacts ship from this repo: two CLIs you run, and two runtimes that the code they generate imports.
 
-| Deliverable | What it is | Install | Docs |
-|---|---|---|---|
-| **`gqlkit`** CLI | Generates a typed Go **or** TypeScript SDK from a GraphQL schema | `curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh \| sh` | [CLI reference](./docs/cli-reference.md) |
-| **`gqlkit-sdl`** CLI | Fetches a live endpoint's schema by introspection and writes it as SDL | `curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh \| sh` | [CLI reference](./docs/cli-reference.md#gqlkit-sdl) |
-| **`gqlkit`** Go module | Runtime the generated **Go** SDK imports — builder, client, batching | `go get github.com/khanakia/gqlkit/gqlkit` | [Getting started — Go](./docs/getting-started-go.md) |
-| **`gqlkit-ts`** npm package | Runtime the generated **TypeScript** SDK imports | `npm i gqlkit-ts` | [Getting started — TypeScript](./docs/getting-started-typescript.md) |
+**The CLIs.** `gqlkit-sdl` pulls a schema off a live endpoint by introspection and writes it as SDL; `gqlkit` turns that SDL into a typed SDK, Go or TypeScript.
+
+```bash
+go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@latest
+go install github.com/khanakia/gqlkit/gqlkit-sdl@latest
+```
+
+Without a Go toolchain, use the install scripts (macOS and Linux) or grab a [release binary](https://github.com/khanakia/gqlkit/releases) for any platform:
+
+```bash
+curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh | sh
+curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh | sh
+```
+
+Every command and flag, with real output and exit codes: [`gqlkit`](./docs/cli-reference.md#gqlkit) · [`gqlkit-sdl`](./docs/cli-reference.md#gqlkit-sdl).
+
+**The runtimes.** You never call these directly — the generated SDK imports one of them for the builder, the HTTP client and batching. Add whichever matches the SDK you generated:
+
+```bash
+go get github.com/khanakia/gqlkit/gqlkit   # for a generated Go SDK
+npm i gqlkit-ts                            # for a generated TypeScript SDK
+```
+
+Then follow [Getting started — Go](./docs/getting-started-go.md) or [Getting started — TypeScript](./docs/getting-started-typescript.md).
 
 ## Contents
 
-- [What ships here](#what-ships-here)
 - [Install](#install)
 - [Quick Start — Go](#quick-start--go)
 - [Quick Start — TypeScript](#quick-start--typescript)
@@ -28,19 +45,9 @@ This repo publishes four artifacts. The two CLIs are what you run; the two runti
 - [Recipes](./docs/recipes.md)
 - [Key Features](#key-features)
 - [FAQ](#faq)
-- [Tools](#tools)
+- [Versions and changelogs](#versions-and-changelogs)
 - [Testing and coverage](#testing-and-coverage)
 - [Contributing](#contributing)
-
-## Install
-
-```bash
-# macOS / Linux
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh | sh
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh | sh
-```
-
-Or download binaries from [Releases](https://github.com/khanakia/gqlkit/releases).
 
 ## Quick Start — Go
 
@@ -244,15 +251,15 @@ Deep dive: [docs/ai-friendly.md](./docs/ai-friendly.md)
 - **Custom scalar mappings** — configure how GraphQL scalars map to language types via `config.jsonc`
 - **Zero runtime overhead** — generated code with minimal dependencies
 
-## Tools
+## Versions and changelogs
 
-| Tool | Description | Changelog |
-|------|-------------|-----------|
-| `gqlkit` | CLI — generates Go and TypeScript SDKs from GraphQL schemas | [`gqlkit/CHANGELOG.md`](./gqlkit/CHANGELOG.md) |
-| `gqlkit-sdl` | CLI — fetches GraphQL schemas via introspection | [`gqlkit-sdl/CHANGELOG.md`](./gqlkit-sdl/CHANGELOG.md) |
-| [`gqlkit-ts`](https://www.npmjs.com/package/gqlkit-ts) | npm package — lightweight TypeScript runtime for generated SDKs | [`gqlkit-ts/CHANGELOG.md`](./gqlkit-ts/CHANGELOG.md) |
+Each artifact is versioned and released independently, so each keeps its own changelog:
 
-Each artifact is versioned independently; release notes live in its own changelog. GitHub release pages at <https://github.com/khanakia/gqlkit/releases> mirror the same entries.
+- `gqlkit` — [CHANGELOG](./gqlkit/CHANGELOG.md)
+- `gqlkit-sdl` — [CHANGELOG](./gqlkit-sdl/CHANGELOG.md)
+- [`gqlkit-ts`](https://www.npmjs.com/package/gqlkit-ts) — [CHANGELOG](./gqlkit-ts/CHANGELOG.md)
+
+The [GitHub release pages](https://github.com/khanakia/gqlkit/releases) mirror the same entries. See [what ships here](#install) for what each one is.
 
 ## FAQ
 
@@ -278,7 +285,7 @@ Go and TypeScript, from the same schema. The Go and TypeScript SDKs expose the s
 Either point gqlkit at an existing `.graphql` SDL file, or fetch it from any live endpoint via introspection with `gqlkit-sdl fetch --url <endpoint>`.
 
 **Is it production-ready?**
-The generators have a two-layer test suite (unit tests on the type mapping plus end-to-end "generate and compile" guards) and CI on every push. The artifacts version independently via SemVer; see each [changelog](#tools).
+The generators have a two-layer test suite (unit tests on the type mapping plus end-to-end "generate and compile" guards) and CI on every push. The artifacts version independently via SemVer; see each [changelog](#versions-and-changelogs).
 
 ## Testing and coverage
 
@@ -293,12 +300,8 @@ Coverage is measured per module, because each one is released and consumed separ
 
 Four functions report 0% and stay that way for reasons that no additional test can change:
 
-| Function | Why it cannot be covered |
-|---|---|
-| `gqlkit/cmd/gqlkit/root.go:main` | Process entry point — calls `os.Exit`, so executing it ends the test binary. Everything it dispatches to is covered through `cmd/gqlkit`'s own tests. |
-| `gqlkit-sdl/main.go:main` | Same: `os.Exit` wrapper around the covered `fetch` command. |
-| `builder.QueryMarker.IsQueryOp` | Empty marker method (`func (QueryMarker) IsQueryOp() {}`). It has zero statements, and statement coverage counts statements — the figure cannot rise above 0% even though `pkg/builder`'s tests call it on every run. |
-| `builder.MutationMarker.IsMutationOp` | Same — the dual marker, also a zero-statement body. |
+- **`gqlkit/cmd/gqlkit/root.go:main`** and **`gqlkit-sdl/main.go:main`** — process entry points. They call `os.Exit`, so executing one ends the test binary. Everything they dispatch to is covered by each command's own tests.
+- **`builder.QueryMarker.IsQueryOp`** and **`builder.MutationMarker.IsMutationOp`** — empty marker methods (`func (QueryMarker) IsQueryOp() {}`). They contain zero statements, and statement coverage counts statements, so the figure cannot rise above 0% even though `pkg/builder`'s tests call them on every run.
 
 The markers are still pinned: `pkg/builder/marker_test.go` asserts, at compile time, that each type satisfies the interface `pkg/batch` requires, and that the two markers remain distinct types. That check matters because the interface is satisfied in *generated* SDKs — renaming a marker would leave this module green while every generated batch call site stopped compiling.
 
