@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Canonical repo is github.com/ubgo/gqlkit (moved from khanakia/gqlkit; old deep links 404). Go module paths are github.com/ubgo/gqlkit/{gqlkit,gqlkit-sdl}. git origin is git@github.com:ubgo/gqlkit.git. Generated Go SDKs require Go 1.24+ (go_version_guard.go).",
+  "confidence": null,
+  "created_at": "2026-10-13T14:46:31.978976000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "id": "mem_01a135bab92a7eecad7fa364043cc0d8",
+  "kind": "core",
+  "last_validated_at": null,
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": null,
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-13T14:46:31.978999000Z",
+  "updated_at": "2026-10-13T14:46:31.978976000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

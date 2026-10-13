@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Releasing gqlkit or gqlkit-sdl pushes TWO tags on the release commit: the @ tag (gqlkit@vX.Y.Z / gqlkit-sdl@vX.Y.Z) triggers the GoReleaser workflow and creates the GitHub Release; the slash tag (gqlkit/vX.Y.Z / gqlkit-sdl/vX.Y.Z) is the Go module version tag that go get/go install and the module proxy resolve. Never move a slash tag once pushed: the Go proxy caches the first copy forever, so cut a new patch instead. gqlkit-ts: bump package.json, push the parity tag gqlkit-ts@vX.Y.Z, npm publish with OTP (credentials and TOTP are in 1Password item 'npmjs.com'; use a temp --userconfig session and npm logout afterwards, never write ~/.npmrc). Update all three CHANGELOGs before tagging. After a release, re-pin example go.mod files to the new versions.",
+  "confidence": null,
+  "created_at": "2026-10-13T14:46:31.868974000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "id": "mem_01a135bab8bc7ee48e6f237894af4487",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": null,
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-13T14:46:31.868994000Z",
+  "updated_at": "2026-10-13T14:46:31.868974000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}
