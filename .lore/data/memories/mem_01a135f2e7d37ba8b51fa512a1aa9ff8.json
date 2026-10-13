@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Current released versions (2026-10-13): gqlkit v0.14.0, gqlkit-sdl v0.12.0, gqlkit-ts 0.3.0 (npm latest). Next releases are v0.14.1, v0.12.1 and 0.3.1 unless the owner asks for more. All three were released from the commit tagged gqlkit@v0.14.0 (look it up with git rev-parse 'gqlkit@v0.14.0^{commit}'; commit IDs changed when history was rewritten on 2026-10-13, so never record raw SHAs here).",
+  "confidence": null,
+  "created_at": "2026-10-13T15:47:53.939759000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "id": "mem_01a135f2e7d37ba8b51fa512a1aa9ff8",
+  "kind": "core",
+  "last_validated_at": null,
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": null,
+  "superseded_by_id": "mem_01a135bab8517d3e958805b534b4ea02",
+  "trust_score": 0.5,
+  "tx_at": "2026-10-13T15:47:53.940158000Z",
+  "updated_at": "2026-10-13T15:47:53.939760000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}
