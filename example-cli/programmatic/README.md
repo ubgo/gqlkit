@@ -28,5 +28,5 @@ mockapi is not running at http://localhost:8081/query (...); start it with: task
 
 ## Notes
 
-- The module requires the published `gqlkit` and `gqlkit-sdl` modules but builds against the local source through the repository's `go.work`, like the other examples. `sdlapi` uses the two-value `FilterSchema` signature, which is newer than the pinned `gqlkit-sdl` v0.11.0, so building it outside the workspace needs a newer release.
+- The module requires the published `gqlkit` and `gqlkit-sdl` modules but builds against the local source through the repository's `go.work`, like the other examples. It pins `gqlkit` v0.14.0 and `gqlkit-sdl` v0.12.0, the first release with the two-value `FilterSchema` signature that `sdlapi` uses, so it also builds outside the workspace (`GOWORK=off go build ./...`).
 - Running a program by hand from this directory writes its outputs here; [`.gitignore`](./.gitignore) keeps them out of git.
