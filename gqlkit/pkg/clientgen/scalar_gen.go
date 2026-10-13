@@ -1,7 +1,7 @@
 package clientgen
 
 import (
-	"github.com/khanakia/gqlkit/gqlkit/pkg/typegql"
+	"github.com/ubgo/gqlkit/gqlkit/pkg/typegql"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )

@@ -187,4 +187,4 @@ The three shippable artifacts (`gqlkit`, `gqlkit-sdl`, `gqlkit-ts`) version inde
 
 ## Questions
 
-Open a [discussion or issue](https://github.com/khanakia/gqlkit/issues). We're happy to help you land your first contribution.
+Open a [discussion or issue](https://github.com/ubgo/gqlkit/issues). We're happy to help you land your first contribution.

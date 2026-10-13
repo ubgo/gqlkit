@@ -7,18 +7,18 @@ A CLI tool that generates type-safe Go and TypeScript client SDKs from GraphQL S
 ### Quick install (macOS / Linux)
 
 ```bash
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh | sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit/install.sh | sh
 ```
 
 ### Manual download
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/khanakia/gqlkit/releases).
+Download the latest release for your platform from [GitHub Releases](https://github.com/ubgo/gqlkit/releases).
 
 ### From source
 
 ```bash
-go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@latest   # newest release
-go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@v0.12.0  # pinned
+go install github.com/ubgo/gqlkit/gqlkit/cmd/gqlkit@latest   # newest release
+go install github.com/ubgo/gqlkit/gqlkit/cmd/gqlkit@v0.12.0  # pinned
 ```
 
 Releases consumable by Go are tagged in the path-prefixed form Go requires for a nested module (`gqlkit/v0.12.0`), starting at v0.11.0. The `gqlkit@vX.Y.Z` tags are what GitHub Releases and the install script above use; both forms point at the same commits, and `gqlkit version` reports the module version it was built from either way.

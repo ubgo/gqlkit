@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-REPO="khanakia/gqlkit"
+REPO="ubgo/gqlkit"
 BINARY="gqlkit"
 TAG_PREFIX="gqlkit@"
 INSTALL_DIR="/usr/local/bin"

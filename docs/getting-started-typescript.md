@@ -29,15 +29,15 @@ GQLKit generates fully typed TypeScript GraphQL client SDKs from a GraphQL schem
 
 ```bash
 # Install gqlkit (SDK generator)
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh | sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit/install.sh | sh
 
 # Install gqlkit-sdl (schema fetcher)
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh | sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit-sdl/install.sh | sh
 ```
 
 **Option B — Download from GitHub Releases:**
 
-Go to [Releases](https://github.com/khanakia/gqlkit/releases) and download the binary for your platform.
+Go to [Releases](https://github.com/ubgo/gqlkit/releases) and download the binary for your platform.
 
 
 ## Step 2: Get your GraphQL schema
@@ -121,7 +121,7 @@ package main
 import (
     "fmt"
 
-    "github.com/khanakia/gqlkit/gqlkit/pkg/clientgents"
+    "github.com/ubgo/gqlkit/gqlkit/pkg/clientgents"
 )
 
 func main() {

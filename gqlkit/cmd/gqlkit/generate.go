@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/khanakia/gqlkit/gqlkit/pkg/clientgen"
+	"github.com/ubgo/gqlkit/gqlkit/pkg/clientgen"
 
 	"github.com/spf13/cobra"
 )

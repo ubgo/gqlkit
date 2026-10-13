@@ -15,8 +15,8 @@ End-to-end workflows, each one a complete path from nothing to working code. For
 The common case: a third-party GraphQL endpoint, an auth token, and you want typed access from Go.
 
 ```bash
-go install github.com/khanakia/gqlkit/gqlkit-sdl@latest
-go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@latest
+go install github.com/ubgo/gqlkit/gqlkit-sdl@latest
+go install github.com/ubgo/gqlkit/gqlkit/cmd/gqlkit@latest
 
 gqlkit-sdl fetch \
   --url https://api.example.com/graphql \
@@ -31,7 +31,7 @@ gqlkit generate -s schema.graphql -o ./sdk -m "$(go list -m)"
 Then add the runtime and build:
 
 ```bash
-go get github.com/khanakia/gqlkit/gqlkit
+go get github.com/ubgo/gqlkit/gqlkit
 go build ./...
 ```
 

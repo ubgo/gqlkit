@@ -1,6 +1,6 @@
 # GQLKit — GraphQL SDK generator CLI, schema fetcher, and Go + TypeScript runtimes
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/khanakia/gqlkit/gqlkit.svg)](https://pkg.go.dev/github.com/khanakia/gqlkit/gqlkit) [![Go Report Card](https://goreportcard.com/badge/github.com/khanakia/gqlkit/gqlkit)](https://goreportcard.com/report/github.com/khanakia/gqlkit/gqlkit) [![test](https://github.com/khanakia/gqlkit/actions/workflows/test.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/test.yml) [![lint](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml/badge.svg)](https://github.com/khanakia/gqlkit/actions/workflows/lint.yml) ![coverage gqlkit](https://img.shields.io/badge/coverage%20gqlkit-91.7%25-brightgreen) ![coverage gqlkit-sdl](https://img.shields.io/badge/coverage%20gqlkit--sdl-96.6%25-brightgreen) [![release](https://img.shields.io/github/v/tag/khanakia/gqlkit?sort=semver&filter=gqlkit@*&label=release)](https://github.com/khanakia/gqlkit/tags) [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE) ![Go](https://img.shields.io/badge/go-1.25-00ADD8?logo=go)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ubgo/gqlkit/gqlkit.svg)](https://pkg.go.dev/github.com/ubgo/gqlkit/gqlkit) [![Go Report Card](https://goreportcard.com/badge/github.com/ubgo/gqlkit/gqlkit)](https://goreportcard.com/report/github.com/ubgo/gqlkit/gqlkit) [![test](https://github.com/ubgo/gqlkit/actions/workflows/test.yml/badge.svg)](https://github.com/ubgo/gqlkit/actions/workflows/test.yml) [![lint](https://github.com/ubgo/gqlkit/actions/workflows/lint.yml/badge.svg)](https://github.com/ubgo/gqlkit/actions/workflows/lint.yml) ![coverage gqlkit](https://img.shields.io/badge/coverage%20gqlkit-91.7%25-brightgreen) ![coverage gqlkit-sdl](https://img.shields.io/badge/coverage%20gqlkit--sdl-96.6%25-brightgreen) [![release](https://img.shields.io/github/v/tag/ubgo/gqlkit?sort=semver&filter=gqlkit@*&label=release)](https://github.com/ubgo/gqlkit/tags) [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE) ![Go](https://img.shields.io/badge/go-1.25-00ADD8?logo=go)
 
 Generate fully typed GraphQL client SDKs for **Go** and **TypeScript** from any GraphQL schema. Built on a **builder pattern** with type-safe field selection — only the fields you select appear in the return type.
 
@@ -13,15 +13,15 @@ Four artifacts ship from this repo: two CLIs you run, and two runtimes that the 
 **The CLIs.** `gqlkit-sdl` pulls a schema off a live endpoint by introspection and writes it as SDL; `gqlkit` turns that SDL into a typed SDK, Go or TypeScript.
 
 ```bash
-go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@latest
-go install github.com/khanakia/gqlkit/gqlkit-sdl@latest
+go install github.com/ubgo/gqlkit/gqlkit/cmd/gqlkit@latest
+go install github.com/ubgo/gqlkit/gqlkit-sdl@latest
 ```
 
-Without a Go toolchain, use the install scripts (macOS and Linux) or grab a [release binary](https://github.com/khanakia/gqlkit/releases) for any platform:
+Without a Go toolchain, use the install scripts (macOS and Linux) or grab a [release binary](https://github.com/ubgo/gqlkit/releases) for any platform:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh | sh
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh | sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit/install.sh | sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit-sdl/install.sh | sh
 ```
 
 Every command and flag, with real output and exit codes: [`gqlkit`](./docs/cli-reference.md#gqlkit) · [`gqlkit-sdl`](./docs/cli-reference.md#gqlkit-sdl).
@@ -29,7 +29,7 @@ Every command and flag, with real output and exit codes: [`gqlkit`](./docs/cli-r
 **The runtimes.** You never call these directly — the generated SDK imports one of them for the builder, the HTTP client and batching. Add whichever matches the SDK you generated:
 
 ```bash
-go get github.com/khanakia/gqlkit/gqlkit   # for a generated Go SDK
+go get github.com/ubgo/gqlkit/gqlkit   # for a generated Go SDK
 npm i gqlkit-ts                            # for a generated TypeScript SDK
 ```
 
@@ -259,7 +259,7 @@ Each artifact is versioned and released independently, so each keeps its own cha
 - `gqlkit-sdl` — [CHANGELOG](./gqlkit-sdl/CHANGELOG.md)
 - [`gqlkit-ts`](https://www.npmjs.com/package/gqlkit-ts) — [CHANGELOG](./gqlkit-ts/CHANGELOG.md)
 
-The [GitHub release pages](https://github.com/khanakia/gqlkit/releases) mirror the same entries. See [what ships here](#install) for what each one is.
+The [GitHub release pages](https://github.com/ubgo/gqlkit/releases) mirror the same entries. See [what ships here](#install) for what each one is.
 
 ## FAQ
 

@@ -24,4 +24,4 @@ All notable changes to the [`gqlkit-ts`](https://www.npmjs.com/package/gqlkit-ts
 - `FieldSelection` + `BaseBuilder` — query-assembly primitives that generated SDKs extend.
 - Build pipeline: `tsc` → `dist/` (CommonJS + `.d.ts`).
 
-[0.2.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit-ts%40v0.2.0
+[0.2.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-ts%40v0.2.0

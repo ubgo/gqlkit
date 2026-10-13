@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/khanakia/gqlkit/gqlkit/pkg/graphqlclient"
+	"github.com/ubgo/gqlkit/gqlkit/pkg/graphqlclient"
 )
 
 // Pins batch.Error.Error (batch.go:68) — the only arm of the error

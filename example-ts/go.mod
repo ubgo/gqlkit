@@ -2,7 +2,7 @@ module example-ts
 
 go 1.25.5
 
-require github.com/khanakia/gqlkit/gqlkit v0.11.0
+require github.com/ubgo/gqlkit/gqlkit v0.13.0
 
 require (
 	github.com/agnivade/levenshtein v1.2.1 // indirect

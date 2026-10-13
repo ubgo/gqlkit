@@ -6,12 +6,12 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/khanakia/gqlkit.git",
+    "url": "git+https://github.com/ubgo/gqlkit.git",
     "directory": "gqlkit-ts"
   },
-  "homepage": "https://github.com/khanakia/gqlkit/tree/main/gqlkit-ts",
+  "homepage": "https://github.com/ubgo/gqlkit/tree/main/gqlkit-ts",
   "bugs": {
-    "url": "https://github.com/khanakia/gqlkit/issues"
+    "url": "https://github.com/ubgo/gqlkit/issues"
   },
   "keywords": [
     "graphql",

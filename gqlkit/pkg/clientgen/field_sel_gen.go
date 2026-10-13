@@ -3,7 +3,7 @@ package clientgen
 import (
 	"bytes"
 	"fmt"
-	"github.com/khanakia/gqlkit/gqlkit/pkg/util"
+	"github.com/ubgo/gqlkit/gqlkit/pkg/util"
 	"sort"
 	"strings"
 
@@ -14,7 +14,7 @@ import (
 // selector struct. Each GraphQL object type gets its own selector that wraps
 // builder.FieldSelection with typed methods for each field.
 type FieldSelectorData struct {
-	BuilderPkgImport string // full import path, e.g. "github.com/khanakia/gqlkit/gqlkit/pkg/builder"
+	BuilderPkgImport string // full import path, e.g. "github.com/ubgo/gqlkit/gqlkit/pkg/builder"
 	BuilderPkgName   string // package identifier in code, e.g. "builder"
 	TypeName         string
 	SelectorName     string

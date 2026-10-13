@@ -6,7 +6,7 @@
 
 Instead, report them privately:
 
-- Use **[GitHub Security Advisories](https://github.com/khanakia/gqlkit/security/advisories/new)** (preferred), or
+- Use **[GitHub Security Advisories](https://github.com/ubgo/gqlkit/security/advisories/new)** (preferred), or
 - Email **khanakia@gmail.com** with the details.
 
 Please include:

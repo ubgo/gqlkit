@@ -7,12 +7,12 @@ A CLI tool that fetches a GraphQL schema from a live endpoint via introspection 
 ### Quick install (macOS / Linux)
 
 ```bash
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh | sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit-sdl/install.sh | sh
 ```
 
 ### Manual download
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/khanakia/gqlkit/releases).
+Download the latest release for your platform from [GitHub Releases](https://github.com/ubgo/gqlkit/releases).
 
 ### From source
 

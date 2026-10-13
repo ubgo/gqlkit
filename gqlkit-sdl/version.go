@@ -7,7 +7,7 @@ import "runtime/debug"
 // Why it exists: `version` is injected at build time via goreleaser
 // ldflags, which only happens for the release binaries served by GitHub
 // Releases and the install script. Anyone who installs with
-// `go install github.com/khanakia/gqlkit/gqlkit-sdl@latest` gets
+// `go install github.com/ubgo/gqlkit/gqlkit-sdl@latest` gets
 // the compile-time default instead, so a correctly-installed release
 // reported itself as "dev" and users had no way to tell which version
 // they were running when filing a bug.

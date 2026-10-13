@@ -6,9 +6,9 @@ Four artifacts ship from this repo. The two CLIs are what a user runs; the two r
 
 | Artifact | Kind | Install |
 |---|---|---|
-| `gqlkit` | CLI — generates a Go or TypeScript SDK from an SDL file | `go install github.com/khanakia/gqlkit/gqlkit/cmd/gqlkit@latest` |
-| `gqlkit-sdl` | CLI — fetches a live endpoint's schema by introspection, writes SDL | `go install github.com/khanakia/gqlkit/gqlkit-sdl@latest` |
-| `github.com/khanakia/gqlkit/gqlkit` | Go module — runtime imported by generated Go SDKs | `go get github.com/khanakia/gqlkit/gqlkit` |
+| `gqlkit` | CLI — generates a Go or TypeScript SDK from an SDL file | `go install github.com/ubgo/gqlkit/gqlkit/cmd/gqlkit@latest` |
+| `gqlkit-sdl` | CLI — fetches a live endpoint's schema by introspection, writes SDL | `go install github.com/ubgo/gqlkit/gqlkit-sdl@latest` |
+| `github.com/ubgo/gqlkit/gqlkit` | Go module — runtime imported by generated Go SDKs | `go get github.com/ubgo/gqlkit/gqlkit` |
 | `gqlkit-ts` | npm package — runtime imported by generated TypeScript SDKs | `npm i gqlkit-ts` |
 
 ## Key facts an assistant gets wrong without reading them

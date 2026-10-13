@@ -47,7 +47,7 @@ jobs:
           TAG="${{ steps.version.outputs.full_tag }}"
           VERSION="${{ steps.version.outputs.version }}"
           gh release create "$TAG" \
-            --repo khanakia/gqlkit \
+            --repo ubgo/gqlkit \
             --title "gqlkit@$VERSION" \
             --generate-notes \
             gqlkit/dist/*.tar.gz gqlkit/dist/*.zip gqlkit/dist/gqlkit_checksums.txt

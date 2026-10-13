@@ -8,10 +8,10 @@ package clientgen
 import (
 	"bytes"
 	"fmt"
-	"github.com/khanakia/gqlkit/gqlkit/pkg/schemagql"
-	"github.com/khanakia/gqlkit/gqlkit/pkg/templater"
-	"github.com/khanakia/gqlkit/gqlkit/pkg/typegql"
-	"github.com/khanakia/gqlkit/gqlkit/pkg/writer"
+	"github.com/ubgo/gqlkit/gqlkit/pkg/schemagql"
+	"github.com/ubgo/gqlkit/gqlkit/pkg/templater"
+	"github.com/ubgo/gqlkit/gqlkit/pkg/typegql"
+	"github.com/ubgo/gqlkit/gqlkit/pkg/writer"
 	"sort"
 	"strings"
 
@@ -211,7 +211,7 @@ func (g *Generator) generateGraphQLClientFiles() error {
 func (g *Generator) generateBatchFiles() error {
 	rootPkg := strings.TrimSuffix(g.config.Package, "/")
 	if rootPkg == "" {
-		rootPkg = "github.com/khanakia/gqlkit/gqlkit/sdk"
+		rootPkg = "github.com/ubgo/gqlkit/gqlkit/sdk"
 	}
 	b := bytes.NewBuffer(nil)
 	err := g.templates.ExecuteTemplate(b, "batch", map[string]interface{}{

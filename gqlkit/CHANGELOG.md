@@ -2,16 +2,22 @@
 
 All notable changes to the `gqlkit` binary. Format: [Keep a Changelog](https://keepachangelog.com/), versioning: [SemVer](https://semver.org/).
 
-Tagged as `gqlkit@vX.Y.Z`. See releases at <https://github.com/khanakia/gqlkit/releases>.
+Tagged as `gqlkit@vX.Y.Z`. See releases at <https://github.com/ubgo/gqlkit/releases>.
+
+## [0.13.0] — 2026-10-13
+
+### Changed
+- The Go module path is now `github.com/ubgo/gqlkit/gqlkit` (was `github.com/khanakia/gqlkit/gqlkit`). Update imports, `go get` and `go install` lines to the new path. Generated Go SDKs now import `github.com/ubgo/gqlkit/...`.
+- Licensed under Apache-2.0 (was MIT).
 
 ## [0.10.0] — 2026-07-03
 
 ### Fixed
-- `generate` (Go): the `-m` / `--module` value was dropped, so cross-package imports in the generated SDK came out as `import ( "" )` / `import ( "/types" )` and the SDK didn't compile. `--module` is now threaded into every local package import (`types`, `enums`, `scalars`, `inputs`, `fields`, `builder`, `graphqlclient`, `batch`), each emitted as `<module>/<pkg>`. `go build ./...` on the generated SDK now succeeds. The `cmd/generate` programmatic API (which sets `Package` directly) was unaffected. ([#4](https://github.com/khanakia/gqlkit/issues/4))
-- `generate` (Go): object-typed struct fields were emitted by value, so any GraphQL object cycle (e.g. Shopify's `ProductVariant` → `QuantityRule` → `ProductVariant`) produced an `invalid recursive type` build error. Object and input-object fields are now always pointers (`*T`, and `[]*T` in lists), which both breaks the value cycle and models nullable objects. ([#4](https://github.com/khanakia/gqlkit/issues/4))
-- `generate` (Go): schemas whose query root is named non-conventionally (e.g. Shopify's `QueryRoot`) leaked the introspection meta-fields `__schema` / `__type` into the generated `types.go`, referencing the ungenerated builtin `__Schema` / `__Type` types (`undefined: __Schema`). All `__`-prefixed meta-fields are now excluded from generated structs and their import collection. ([#4](https://github.com/khanakia/gqlkit/issues/4))
-- `generate` (Go): GraphQL type names that aren't capitalized generated **unexported** Go identifiers, undefined when referenced from another generated package (`undefined: scalars.timestamptz`, `enums.order_by`). Hasura schemas (`timestamptz`, `uuid`, `jsonb`, `order_by`) and Apollo Federation types (`_Service`, `_Entity`) hit this. Generated Go type identifiers are now always exported — the first letter is capitalized and leading underscores are stripped (`timestamptz` → `Timestamptz`, `_Service` → `Service`) at every definition and reference site. GraphQL field/JSON names are unchanged; already-exported names (`JSON`, `DateTime`, `ID`) are untouched. ([#4](https://github.com/khanakia/gqlkit/issues/4))
-- `generate` (Go): placeholder fields named `_` (the Apollo Federation empty-type marker, `_: Int`) produced an empty Go identifier — `func (q *QueryRoot) () *Builder`, a syntax error. Fields whose name yields no valid Go identifier are now skipped. ([#4](https://github.com/khanakia/gqlkit/issues/4))
+- `generate` (Go): the `-m` / `--module` value was dropped, so cross-package imports in the generated SDK came out as `import ( "" )` / `import ( "/types" )` and the SDK didn't compile. `--module` is now threaded into every local package import (`types`, `enums`, `scalars`, `inputs`, `fields`, `builder`, `graphqlclient`, `batch`), each emitted as `<module>/<pkg>`. `go build ./...` on the generated SDK now succeeds. The `cmd/generate` programmatic API (which sets `Package` directly) was unaffected. ([#4](https://github.com/ubgo/gqlkit/issues/4))
+- `generate` (Go): object-typed struct fields were emitted by value, so any GraphQL object cycle (e.g. Shopify's `ProductVariant` → `QuantityRule` → `ProductVariant`) produced an `invalid recursive type` build error. Object and input-object fields are now always pointers (`*T`, and `[]*T` in lists), which both breaks the value cycle and models nullable objects. ([#4](https://github.com/ubgo/gqlkit/issues/4))
+- `generate` (Go): schemas whose query root is named non-conventionally (e.g. Shopify's `QueryRoot`) leaked the introspection meta-fields `__schema` / `__type` into the generated `types.go`, referencing the ungenerated builtin `__Schema` / `__Type` types (`undefined: __Schema`). All `__`-prefixed meta-fields are now excluded from generated structs and their import collection. ([#4](https://github.com/ubgo/gqlkit/issues/4))
+- `generate` (Go): GraphQL type names that aren't capitalized generated **unexported** Go identifiers, undefined when referenced from another generated package (`undefined: scalars.timestamptz`, `enums.order_by`). Hasura schemas (`timestamptz`, `uuid`, `jsonb`, `order_by`) and Apollo Federation types (`_Service`, `_Entity`) hit this. Generated Go type identifiers are now always exported — the first letter is capitalized and leading underscores are stripped (`timestamptz` → `Timestamptz`, `_Service` → `Service`) at every definition and reference site. GraphQL field/JSON names are unchanged; already-exported names (`JSON`, `DateTime`, `ID`) are untouched. ([#4](https://github.com/ubgo/gqlkit/issues/4))
+- `generate` (Go): placeholder fields named `_` (the Apollo Federation empty-type marker, `_: Int`) produced an empty Go identifier — `func (q *QueryRoot) () *Builder`, a syntax error. Fields whose name yields no valid Go identifier are now skipped. ([#4](https://github.com/ubgo/gqlkit/issues/4))
 - `generate-ts` (TypeScript): the same `_` placeholder field produced a broken operation builder — `queries/_.ts` with a generic `Builder` class (colliding across multiple placeholders) and an empty GraphQL operation name. Such fields are now skipped, mirroring the Go generator. Non-conventional query-root names (e.g. `QueryRoot`) and Hasura/Federation lowercase type names are valid TypeScript and continue to generate as before.
 - Generator internals: a scalar binding in `config.jsonc` with an empty or unresolvable `model` used to panic the generator (nil dereference in the Go-type resolver). It now degrades to `any` / a same-package type. `ToSnakeCase` (used for generated file names) is now UTF-8 safe.
 
@@ -93,13 +99,13 @@ Tagged as `gqlkit@vX.Y.Z`. See releases at <https://github.com/khanakia/gqlkit/r
 - Stable download URLs (no version in artifact names).
 - Generated SDK structure: `types/`, `enums/`, `inputs/`, `scalars/`, `fields/`, `queries/`, `mutations/`, `builder/`.
 
-[0.10.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.10.0
-[0.9.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.9.0
-[0.8.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.8.0
-[0.7.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.7.0
-[0.6.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.6.0
-[0.5.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.5.0
-[0.4.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.4.0
-[0.3.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.3.0
-[0.2.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.2.0
-[0.1.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit%40v0.1.0
+[0.10.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.10.0
+[0.9.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.9.0
+[0.8.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.8.0
+[0.7.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.7.0
+[0.6.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.6.0
+[0.5.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.5.0
+[0.4.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.4.0
+[0.3.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.3.0
+[0.2.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.2.0
+[0.1.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.1.0

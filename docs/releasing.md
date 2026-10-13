@@ -78,7 +78,7 @@ The tag `gqlkit-sdl@v0.1.0` matches `gqlkit-sdl@v*` in `.github/workflows/releas
     TAG="${{ steps.version.outputs.full_tag }}"       # "gqlkit-sdl@v0.1.0"
     VERSION="${{ steps.version.outputs.version }}"     # "v0.1.0"
     gh release create "$TAG" \
-      --repo khanakia/gqlkit \
+      --repo ubgo/gqlkit \
       --title "gqlkit-sdl $VERSION" \
       --generate-notes \
       gqlkit-sdl/dist/*.tar.gz gqlkit-sdl/dist/*.zip gqlkit-sdl/dist/gqlkit-sdl_checksums.txt
@@ -119,7 +119,7 @@ Each `.goreleaser.yml` configures:
 - **builds**: Cross-compilation targets (linux/darwin/windows, amd64/arm64), CGO disabled, ldflags for version injection
 - **archives**: `.tar.gz` for linux/macOS, `.zip` for Windows. Filenames exclude the version so `releases/latest/download/` URLs stay stable
 - **checksum**: Named `{project}_checksums.txt` to avoid collisions
-- **release**: Points to `khanakia/gqlkit` repo with a project-specific `name_template`
+- **release**: Points to `ubgo/gqlkit` repo with a project-specific `name_template`
 
 ## Releasing
 
@@ -227,10 +227,10 @@ gqlkit-sdl_linux_amd64.tar.gz
 
 ```bash
 # gqlkit
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh | sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit/install.sh | sh
 
 # gqlkit-sdl
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh | sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit-sdl/install.sh | sh
 ```
 
 ## Deleting and Re-tagging (if needed)
@@ -241,7 +241,7 @@ git tag -d gqlkit-sdl@v0.1.0
 git push origin :refs/tags/gqlkit-sdl@v0.1.0
 
 # Delete the GitHub release (uses the prefixed tag name)
-gh release delete gqlkit-sdl@v0.1.0 --repo khanakia/gqlkit --yes
+gh release delete gqlkit-sdl@v0.1.0 --repo ubgo/gqlkit --yes
 
 # Re-tag and push
 git tag gqlkit-sdl@v0.1.0
@@ -250,4 +250,4 @@ git push origin gqlkit-sdl@v0.1.0
 
 ## Monitor
 
-Check workflow runs at: https://github.com/khanakia/gqlkit/actions
+Check workflow runs at: https://github.com/ubgo/gqlkit/actions

@@ -29,8 +29,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/khanakia/gqlkit/gqlkit/pkg/builder"
-	"github.com/khanakia/gqlkit/gqlkit/pkg/graphqlclient"
+	"github.com/ubgo/gqlkit/gqlkit/pkg/builder"
+	"github.com/ubgo/gqlkit/gqlkit/pkg/graphqlclient"
 )
 
 // QueryBatchable is satisfied by every generated query builder. The

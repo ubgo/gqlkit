@@ -39,6 +39,6 @@ changelog:
 
 release:
   github:
-    owner: khanakia
+    owner: ubgo
     name: gqlkit
   name_template: "gqlkit-sdl {{ .Version }}"

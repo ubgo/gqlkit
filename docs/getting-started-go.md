@@ -27,15 +27,15 @@ GQLKit generates fully typed GraphQL client SDKs from a GraphQL schema. The gene
 
 ```bash
 # Install gqlkit (SDK generator)
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit/install.sh | sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit/install.sh | sh
 
 # Install gqlkit-sdl (schema fetcher)
-curl -sL https://raw.githubusercontent.com/khanakia/gqlkit/main/gqlkit-sdl/install.sh | sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit-sdl/install.sh | sh
 ```
 
 **Option B — Download from GitHub Releases:**
 
-Go to [Releases](https://github.com/khanakia/gqlkit/releases) and download the binary for your platform.
+Go to [Releases](https://github.com/ubgo/gqlkit/releases) and download the binary for your platform.
 
 
 ## Step 2: Get your GraphQL schema
@@ -145,7 +145,7 @@ gqlkit generate \
 Install the generator library:
 
 ```bash
-go get github.com/khanakia/gqlkit/gqlkit/pkg/clientgen
+go get github.com/ubgo/gqlkit/gqlkit/pkg/clientgen
 ```
 
 Create a Go file (e.g., `cmd/generate/main.go`) to invoke the generator programmatically:
@@ -156,7 +156,7 @@ package main
 import (
     "fmt"
 
-    "github.com/khanakia/gqlkit/gqlkit/pkg/clientgen"
+    "github.com/ubgo/gqlkit/gqlkit/pkg/clientgen"
 )
 
 func main() {

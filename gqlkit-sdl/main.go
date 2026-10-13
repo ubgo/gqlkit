@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/khanakia/gqlkit/gqlkit-sdl/schema"
+	"github.com/ubgo/gqlkit/gqlkit-sdl/schema"
 
 	"github.com/spf13/cobra"
 )

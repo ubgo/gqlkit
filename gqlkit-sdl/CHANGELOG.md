@@ -2,7 +2,13 @@
 
 All notable changes to the `gqlkit-sdl` binary. Format: [Keep a Changelog](https://keepachangelog.com/), versioning: [SemVer](https://semver.org/).
 
-Tagged as `gqlkit-sdl@vX.Y.Z`. See releases at <https://github.com/khanakia/gqlkit/releases>.
+Tagged as `gqlkit-sdl@vX.Y.Z`. See releases at <https://github.com/ubgo/gqlkit/releases>.
+
+## [0.11.0] — 2026-10-13
+
+### Changed
+- The Go module path is now `github.com/ubgo/gqlkit/gqlkit-sdl` (was `github.com/khanakia/gqlkit/gqlkit-sdl`). Update imports, `go get` and `go install` lines to the new path.
+- Licensed under Apache-2.0 (was MIT).
 
 ## [0.8.0] — 2026-03-31
 
@@ -47,11 +53,11 @@ Tagged as `gqlkit-sdl@vX.Y.Z`. See releases at <https://github.com/khanakia/gqlk
 - `--debug-curl` flag for troubleshooting introspection requests.
 - GoReleaser-driven release workflow tagged as `gqlkit-sdl@vX.Y.Z`.
 
-[0.8.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit-sdl%40v0.8.0
-[0.7.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit-sdl%40v0.7.0
-[0.6.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit-sdl%40v0.6.0
-[0.5.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit-sdl%40v0.5.0
-[0.4.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit-sdl%40v0.4.0
-[0.3.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit-sdl%40v0.3.0
-[0.2.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit-sdl%40v0.2.0
-[0.1.0]: https://github.com/khanakia/gqlkit/releases/tag/gqlkit-sdl%40v0.1.0
+[0.8.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.8.0
+[0.7.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.7.0
+[0.6.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.6.0
+[0.5.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.5.0
+[0.4.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.4.0
+[0.3.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.3.0
+[0.2.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.2.0
+[0.1.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.1.0
