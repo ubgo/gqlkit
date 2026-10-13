@@ -45,7 +45,7 @@ var selectionShapes = map[string]func(*FieldSelection){
 		u.AddField("id")
 		s.AddFragment("User", u)
 	},
-	"repeated field":   func(s *FieldSelection) { s.AddField("id"); s.AddField("id") },
+	"repeated field": func(s *FieldSelection) { s.AddField("id"); s.AddField("id") },
 }
 
 // argSets enumerates argument layouts: none, one, several with list /

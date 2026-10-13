@@ -229,6 +229,11 @@ tasks:
       - |
         set -e
         for d in $(sed -n 's/^[[:space:]]*\(\.\/[^[:space:]]*\)[[:space:]]*$/\1/p' go.work); do
+          echo ">> gofmt $d"
+          # Mirrors the CI lint workflow: golangci-lint's default rules do not
+          # include gofmt, so an unformatted file passed locally and failed CI.
+          unformatted="$(cd "$d" && gofmt -l .)"
+          if [ -n "$unformatted" ]; then echo "not gofmt-formatted in $d:"; echo "$unformatted"; exit 1; fi
           echo ">> golangci-lint $d"
           (cd "$d" && golangci-lint run --max-same-issues=0 --max-issues-per-linter=0 ./...)
         done
