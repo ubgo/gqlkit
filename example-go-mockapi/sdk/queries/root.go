@@ -83,3 +83,24 @@ func (q *QueryRoot) ServerInfo() *ServerInfoBuilder {
 		BaseBuilder: builder.NewBaseBuilder(q.client, "query", "ServerInfo", "serverInfo"),
 	}
 }
+
+// Fail creates a new FailBuilder
+func (q *QueryRoot) Fail() *FailBuilder {
+	return &FailBuilder{
+		BaseBuilder: builder.NewBaseBuilder(q.client, "query", "Fail", "fail"),
+	}
+}
+
+// RequestHeader creates a new RequestHeaderBuilder
+func (q *QueryRoot) RequestHeader() *RequestHeaderBuilder {
+	return &RequestHeaderBuilder{
+		BaseBuilder: builder.NewBaseBuilder(q.client, "query", "RequestHeader", "requestHeader"),
+	}
+}
+
+// Node creates a new NodeBuilder
+func (q *QueryRoot) Node() *NodeBuilder {
+	return &NodeBuilder{
+		BaseBuilder: builder.NewBaseBuilder(q.client, "query", "Node", "node"),
+	}
+}

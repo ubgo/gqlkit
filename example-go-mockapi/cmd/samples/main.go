@@ -9,7 +9,6 @@ import (
 
 	"example-go-mockapi/sdk/graphqlclient"
 
-	sdkbuilder "example-go-mockapi/sdk/builder"
 	"example-go-mockapi/sdk/batch"
 	"example-go-mockapi/sdk/fields"
 	"example-go-mockapi/sdk/inputs"
@@ -261,32 +260,30 @@ func runTodosConnection(ctx context.Context, qr *queries.QueryRoot) error {
 func runSearch(ctx context.Context, qr *queries.QueryRoot) error {
 	fmt.Println("== Search (union result) ==")
 
-	builder := qr.Search().
-		Term("a")
-
-	// Use the generic builder API to select subfields on the union.
-	selection := builder.GetSelection()
-
-	// We don't have a dedicated typed selector for the union, so we
-	// use the raw FieldSelection to request common fields on both types.
-	todoFrag := sdkbuilder.NewFieldSelection()
-	todoFrag.AddField("id")
-	todoFrag.AddField("text")
-	selection.AddChild("... on Todo", todoFrag)
-
-	userFrag := sdkbuilder.NewFieldSelection()
-	userFrag.AddField("id")
-	userFrag.AddField("name")
-	userFrag.AddField("role")
-	selection.AddChild("... on User", userFrag)
-
-	results, err := builder.Execute(ctx)
+	// search returns the SearchResult union (Todo | User). OnTodo / OnUser
+	// add inline fragments; __typename is always requested, and each
+	// result's Value is the concrete *types.Todo or *types.User.
+	results, err := qr.Search().
+		Term("a").
+		Select(func(s *fields.SearchResultFields) {
+			s.OnTodo(func(t *fields.TodoFields) { t.ID().Text() }).
+				OnUser(func(u *fields.UserFields) { u.ID().Name().Role() })
+		}).
+		Execute(ctx)
 	if err != nil {
 		return err
 	}
 
-	b, _ := json.MarshalIndent(results, "", "  ")
-	fmt.Printf("Search results:\n%s\n", b)
+	for _, r := range results {
+		switch v := r.Value.(type) {
+		case *types.Todo:
+			fmt.Printf("  Todo %s: %s\n", v.ID, v.Text)
+		case *types.User:
+			fmt.Printf("  User %s: %s (%s)\n", v.ID, v.Name, v.Role)
+		default:
+			fmt.Printf("  unknown %s: %s\n", r.Typename, r.Raw)
+		}
+	}
 	return nil
 }
 
@@ -344,7 +341,7 @@ func runTodoMutations(ctx context.Context, qr *queries.QueryRoot, mr *mutations.
 
 	// Update
 	updateInput := inputs.UpdateTodoInput{
-		Text: stringPtr("Updated via SDK"),
+		Text: inputs.Some("Updated via SDK"),
 		Done: boolPtr(true),
 	}
 
@@ -399,4 +396,3 @@ func debugPrintError(err error) {
 func stringPtr(s string) *string { return &s }
 
 func boolPtr(b bool) *bool { return &b }
-

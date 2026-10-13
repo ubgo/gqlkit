@@ -166,3 +166,10 @@ Compiles immediately. No intermediate step.
 | **AI iterations** | Instant — change code, it compiles | Blocked by codegen step each time |
 
 GQLKit's builder pattern turns GraphQL queries into regular code that AI assistants can write, modify, and reason about — with no build steps in between.
+
+## Related
+
+- [llms.txt](../llms.txt): the short project summary written for code assistants, including the facts they most often get wrong.
+- [Documentation index](./README.md): every guide and runnable example.
+- [gqlkit or a query-first generator](./choosing/vs-query-first.md): the cases where a query-first tool is the better fit.
+- [Go or TypeScript](./choosing/go-vs-typescript.md): in Go, "immediate type safety" means every selected field is checked against the schema; only the TypeScript SDK also narrows the result to the selection.

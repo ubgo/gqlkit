@@ -2,6 +2,34 @@
 
 Demonstrates generating a Go SDK from a production-scale chatbot GraphQL schema with complex types, Relay-style cursor pagination, and many operations.
 
+## What you can and cannot run
+
+The schema here comes from a private chatbot API. **The sample program (`cmd/samples`) calls that private server at `http://localhost:2310/api/sa/query` with a workspace header and a token read from the environment, so it will not run for anyone outside that project.** Nobody else has the server, and nothing in this repository starts it.
+
+If you do have access to that server, the sample program takes the connection from three environment variables and the samples to run from its arguments:
+
+| Variable | Sent as | Default |
+| --- | --- | --- |
+| `CHAT_API_URL` | endpoint | `http://localhost:2310/api/sa/query` |
+| `CHAT_WORKSPACE_ID` | `x-workspace-id` header | not sent |
+| `CHAT_TOKEN` | `token` header | not sent |
+
+```bash
+go run ./cmd/samples                      # ping and chatbots (the default)
+go run ./cmd/samples users folders-nested # any names, run in the order given
+go run ./cmd/samples all                  # every sample
+```
+
+The sample names are `ping`, `chatbots`, `credentials`, `users`, `folders`, `chatbots-nested`, `folders-nested`, `channels-nested` and `html-to-markdown` (a mutation). An unknown name exits 1 and lists the valid ones.
+
+What does work without it:
+
+- `go run ./cmd/generate` regenerates the SDK from the committed `cmd/generate/schema.graphql`. It reads only local files.
+- `go build ./...` compiles the SDK and the samples, which is what this example is for: proof that a large real-world schema (84 types, 44 queries, 54 mutations) generates a compiling SDK.
+- Reading `cmd/samples/main.go` shows `WithHeaders`, cursor pagination with ordering and a mutation with an input object.
+
+To run generated code end to end against a server you can start yourself, use [example-go-mockapi](../example-go-mockapi/) (Go SDK from Go code), [example-ts](../example-ts/) (TypeScript), or [example-cli](../example-cli/README.md) (the `gqlkit` and `gqlkit-sdl` CLIs), all of which call the repo's `mockapi` server.
+
 ## Structure
 
 ```
@@ -11,7 +39,7 @@ cmd/
     schema.graphql       Production chatbot GraphQL schema
     config.jsonc         Scalar bindings (Cursor, Time, Password, JSON, etc.)
   samples/
-    main.go              Sample queries demonstrating the SDK
+    main.go              Sample queries, picked by name on the command line
 sdk/                     Generated SDK (do not edit)
   builder/               FieldSelection + BaseBuilder runtime
   scalars/               Custom scalars (Cursor, Password, JSON, Time, etc.)
@@ -34,8 +62,8 @@ go run ./cmd/generate
 ```go
 client := graphqlclient.NewClient("http://localhost:2310/api/sa/query",
     graphqlclient.WithHeaders(map[string]string{
-        "workspace": "workspace-id",
-        "Authorization": "Bearer <jwt>",
+        "x-workspace-id": os.Getenv("CHAT_WORKSPACE_ID"),
+        "token":          os.Getenv("CHAT_TOKEN"),
     }),
 )
 

@@ -9,7 +9,7 @@ import (
 	"example-go-chat/sdk/types"
 )
 
-// NodesBuilder builds a query for nodes
+// NodesBuilder Lookup nodes by a list of IDs.
 //
 // Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
 // and an op-kind marker (Query / Mutation) so the type only satisfies the
@@ -32,12 +32,12 @@ func (b *NodesBuilder) Select(selector func(*fields.NodeFields)) *NodesBuilder {
 }
 
 // Execute runs the query and returns the result
-func (b *NodesBuilder) Execute(ctx context.Context) ([]*types.Node, error) {
+func (b *NodesBuilder) Execute(ctx context.Context) ([]*types.NodeValue, error) {
 	query := b.BuildQuery()
 	variables := b.GetVariables()
 
 	var response struct {
-		Result []*types.Node `json:"nodes"`
+		Result []*types.NodeValue `json:"nodes"`
 	}
 
 	if err := b.GetClient().Execute(ctx, query, variables, &response); err != nil {

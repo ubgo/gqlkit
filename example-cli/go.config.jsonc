@@ -1,0 +1,13 @@
+// Scalar bindings for `gqlkit generate` (the Go SDK).
+// Each value is an object with a "model": a Go type, written as
+// <import path>.<TypeName> for anything outside the universe scope.
+{
+  "bindings": {
+    // A standard-library type: imported as "time" in the generated code.
+    "DateTime": { "model": "time.Time" },
+    // A Go builtin: no import.
+    "Cursor": { "model": "string" }
+    // Not listed, so the built-in mapping applies: JSON -> json.RawMessage.
+    // Not listed and not built in, so it falls back to any: Metadata.
+  }
+}

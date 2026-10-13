@@ -28,7 +28,7 @@ func (b *ServerInfoBuilder) Execute(ctx context.Context) (json.RawMessage, error
 	}
 
 	if err := b.GetClient().Execute(ctx, query, variables, &response); err != nil {
-		return json.RawMessage{}, err
+		return *new(json.RawMessage), err
 	}
 
 	return response.Result, nil

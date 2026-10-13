@@ -1,0 +1,6 @@
+// TypeScript bindings for gen/main.go (clientgents): DateTime stays a string.
+{
+  "bindings": {
+    "DateTime": "string"
+  }
+}

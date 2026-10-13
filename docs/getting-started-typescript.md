@@ -21,6 +21,7 @@ GQLKit generates fully typed TypeScript GraphQL client SDKs from a GraphQL schem
 - [Examples](#examples)
 - [Error Handling](#error-handling)
 - [Client Options](#client-options)
+- [Guides](#guides)
 
 
 ## Step 1: Install the CLI tools
@@ -68,7 +69,7 @@ gqlkit-sdl fetch \
 npm install gqlkit-ts
 ```
 
-This provides the runtime classes: `GraphQLClient`, `BaseBuilder`, `FieldSelection`, and `GraphQLErrors`.
+This provides the runtime the generated SDK imports: `GraphQLClient`, `batch`, the error classes `GraphQLErrors` and `GraphQLHTTPError`, and the low-level `BaseBuilder` and `FieldSelection`.
 
 
 ## Step 4: Configure scalar type mappings
@@ -85,7 +86,7 @@ Create a `config.jsonc` file to map custom GraphQL scalars to TypeScript types:
 }
 ```
 
-Built-in scalars (`String`, `Int`, `Float`, `Boolean`, `ID`) are mapped automatically. Unmapped custom scalars default to `any`.
+Built-in scalars (`String`, `Int`, `Float`, `Boolean`, `ID`) are mapped automatically. Unmapped custom scalars default to `any`, which turns type-checking off for those fields, so bind every custom scalar (to `unknown` if nothing else fits). A plain binding changes the TypeScript type only, so a date scalar bound to a date class is still a string at run time; add a `decode`/`encode` codec to convert values. See [Types, scalars and enums](typescript/types-scalars-enums.md).
 
 
 ## Step 5: Generate the SDK
@@ -110,6 +111,10 @@ gqlkit generate-ts \
 | `--schema` | `-s` | *(required)* | Path to `.graphql` schema file |
 | `--output` | `-o` | `./sdk` | Output directory for generated SDK |
 | `--config` | `-c` | *(optional)* | Path to `config.jsonc` file |
+| `--prune` | | `false` | Delete files in the output directory that carry gqlkit's generated-code banner but were not written by this run (types or operations removed from the schema). Files without the banner are never touched |
+| `--dry-run` | | `false` | With `--prune`: list what would be deleted, delete nothing |
+
+The generated files use explicit `.js` extensions on relative imports (`../builder/index.js`), so the SDK compiles under Node ESM (`"moduleResolution": "nodenext"`) as well as under `bundler` and CommonJS. Import paths you write yourself in `config.jsonc` are emitted as written, so under Node ESM give them the `.js` extension too. More detail: [Generate a TypeScript SDK from the command line](cli/generate-ts.md).
 
 ### Option B — Go script (for more control)
 
@@ -209,6 +214,8 @@ console.log(todos);
 // Only selected fields are available — accessing unselected fields is a compile-time error
 ```
 
+Every builder for a field that returns an object needs `.select()`; calling `.execute()` without it is a compile error. Fields that return a union or interface are selected per member with `on<Type>()`; see [Unions and interfaces](typescript/unions.md).
+
 
 ## Examples
 
@@ -236,7 +243,7 @@ const users = await qr
 ```typescript
 const todo = await qr
   .todo()
-  .id("todo-1")
+  .id("1")
   .select((t) => t.id().text().done().user((u) => u.id().name()))
   .execute();
 ```
@@ -269,7 +276,7 @@ const result = await qr
 // Create
 const created = await mr
   .createTodo()
-  .input({ text: "Buy milk", userId: "user-1" })
+  .input({ text: "Buy milk", userId: "1" })
   .select((t) => t.id().text().done())
   .execute();
 
@@ -318,8 +325,10 @@ Rules:
 
 ## Error Handling
 
+`execute()` throws `GraphQLErrors` when the server reports errors (with any partial data on `err.data`), `GraphQLHTTPError` when the URL does not answer with GraphQL, and the platform's own error when there is no response at all. A nullable result that is missing resolves to `null` and is not an error. The full walkthrough, with real output for each case, is in [Errors](typescript/errors.md).
+
 ```typescript
-import { GraphQLErrors } from "gqlkit-ts";
+import { GraphQLErrors, GraphQLHTTPError } from "gqlkit-ts";
 
 try {
   const result = await qr.todos().select(/* ... */).execute();
@@ -331,8 +340,11 @@ try {
       console.error("  Path:", e.path);
       console.error("  Extensions:", e.extensions);
     }
+  } else if (err instanceof GraphQLHTTPError) {
+    // The endpoint answered, but not with GraphQL (HTML error page, proxy error)
+    console.error("HTTP", err.status, err.body.slice(0, 200));
   } else {
-    // Network or other error
+    // Network failure, abort or timeout
     console.error("Error:", err);
   }
 }
@@ -340,6 +352,8 @@ try {
 
 
 ## Client Options
+
+`authToken` is sent as `Authorization: Bearer <token>` and wins over an `Authorization` entry in `headers`. The client reads the options object on every request, so changing `authToken` on it later rotates the token. There is no client-wide timeout option: pass `{ signal: AbortSignal.timeout(ms) }` to any `execute()`, `client.execute` or `batch`, or wrap `fetch` to time out every request a client sends. [Client options](typescript/client.md) walks through each of these, plus using a fake `fetch` in tests.
 
 ```typescript
 const client = new GraphQLClient("https://your-api.example.com/graphql", {
@@ -356,3 +370,17 @@ const client = new GraphQLClient("https://your-api.example.com/graphql", {
   fetch: customFetchFunction,
 });
 ```
+
+
+## Guides
+
+Task-focused pages, each with a runnable sample in [example-ts/cmd/samples](../example-ts/cmd/samples):
+
+- [Client options](typescript/client.md) — auth token, headers, token rotation, per-call cancellation and timeouts, fake fetch for tests.
+- [Selecting fields](typescript/selecting-fields.md) — narrowed result types, nested objects, lists and nullable results.
+- [Arguments and input types](typescript/arguments-and-inputs.md) — setters, input objects, partial updates.
+- [Types, scalars and enums](typescript/types-scalars-enums.md) — scalar bindings and codecs, enums, nullable typing.
+- [Errors](typescript/errors.md) — `GraphQLErrors`, `GraphQLHTTPError`, network failures, partial data.
+- [Batching](typescript/batching.md) — several queries or mutations in one request.
+- [Unions and interfaces](typescript/unions.md) — `on<Type>()` selectors and discriminated results.
+- [Low-level API](typescript/low-level.md) — `client.execute`, `BaseBuilder`, `FieldSelection`.

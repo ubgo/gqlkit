@@ -5,8 +5,8 @@
 export interface NewTodo {
   text: string;
   userId: string;
-  priority?: number;
-  tags?: string[];
+  priority?: number | null;
+  tags?: string[] | null;
 }
 
 export interface PaginationInput {
@@ -15,15 +15,15 @@ export interface PaginationInput {
 }
 
 export interface TodoFilter {
-  textContains?: string;
-  done?: boolean;
-  minPriority?: number;
-  hasTag?: string;
+  textContains?: string | null;
+  done?: boolean | null;
+  minPriority?: number | null;
+  hasTag?: string | null;
 }
 
 export interface UpdateTodoInput {
-  text?: string;
-  done?: boolean;
-  priority?: number;
-  tags?: string[];
+  text?: string | null;
+  done?: boolean | null;
+  priority?: number | null;
+  tags?: string[] | null;
 }

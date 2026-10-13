@@ -2,16 +2,14 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/ubgo/gqlkit/gqlkit/pkg/clientgen"
 )
 
 func main() {
-	fmt.Println("Hello, World!")
-
 	config := &clientgen.Config{
-		SchemaPath: "cmd/generate/schema.graphql",
-		// SchemaPath:  "cmd/test/enum.graphql",
+		SchemaPath:  "cmd/generate/schema.graphql",
 		OutputDir:   "./sdk",
 		PackageName: "sdk",
 		ModulePath:  "github.com/example/sdk",
@@ -21,12 +19,12 @@ func main() {
 
 	gen, err := clientgen.New(config)
 	if err != nil {
-		fmt.Println("failed to create generator: %w", err)
-		return
+		fmt.Fprintf(os.Stderr, "failed to create generator: %v\n", err)
+		os.Exit(1)
 	}
 
 	if err := gen.Generate(); err != nil {
-		fmt.Println("failed to generate SDK: %w", err)
-		return
+		fmt.Fprintf(os.Stderr, "failed to generate SDK: %v\n", err)
+		os.Exit(1)
 	}
 }

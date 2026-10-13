@@ -12,12 +12,280 @@ type NodeFields struct {
 }
 
 // NewNodeFields creates a new NodeFields selector
+//
+// Node is abstract: __typename is always selected so the result can
+// be decoded into its concrete type.
 func NewNodeFields(selection *builder.FieldSelection) *NodeFields {
+	selection.AddField("__typename")
 	return &NodeFields{selection: selection}
 }
 
 // ID selects the id field
 func (f *NodeFields) ID() *NodeFields {
 	f.selection.AddField("id")
+	return f
+}
+
+// OnAiModel selects fields that only exist when the result is a
+// AiModel (an inline fragment: ... on AiModel).
+func (f *NodeFields) OnAiModel(selector func(*AiModelFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewAiModelFields(child))
+	}
+	f.selection.AddFragment("AiModel", child)
+	return f
+}
+
+// OnBillingFeature selects fields that only exist when the result is a
+// BillingFeature (an inline fragment: ... on BillingFeature).
+func (f *NodeFields) OnBillingFeature(selector func(*BillingFeatureFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewBillingFeatureFields(child))
+	}
+	f.selection.AddFragment("BillingFeature", child)
+	return f
+}
+
+// OnBillingPlan selects fields that only exist when the result is a
+// BillingPlan (an inline fragment: ... on BillingPlan).
+func (f *NodeFields) OnBillingPlan(selector func(*BillingPlanFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewBillingPlanFields(child))
+	}
+	f.selection.AddFragment("BillingPlan", child)
+	return f
+}
+
+// OnBillingPlanFeature selects fields that only exist when the result is a
+// BillingPlanFeature (an inline fragment: ... on BillingPlanFeature).
+func (f *NodeFields) OnBillingPlanFeature(selector func(*BillingPlanFeatureFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewBillingPlanFeatureFields(child))
+	}
+	f.selection.AddFragment("BillingPlanFeature", child)
+	return f
+}
+
+// OnBillingPlanWspace selects fields that only exist when the result is a
+// BillingPlanWspace (an inline fragment: ... on BillingPlanWspace).
+func (f *NodeFields) OnBillingPlanWspace(selector func(*BillingPlanWspaceFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewBillingPlanWspaceFields(child))
+	}
+	f.selection.AddFragment("BillingPlanWspace", child)
+	return f
+}
+
+// OnCWorkspaceFeatureLimit selects fields that only exist when the result is a
+// CWorkspaceFeatureLimit (an inline fragment: ... on CWorkspaceFeatureLimit).
+func (f *NodeFields) OnCWorkspaceFeatureLimit(selector func(*CWorkspaceFeatureLimitFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewCWorkspaceFeatureLimitFields(child))
+	}
+	f.selection.AddFragment("CWorkspaceFeatureLimit", child)
+	return f
+}
+
+// OnCWorkspaceSub selects fields that only exist when the result is a
+// CWorkspaceSub (an inline fragment: ... on CWorkspaceSub).
+func (f *NodeFields) OnCWorkspaceSub(selector func(*CWorkspaceSubFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewCWorkspaceSubFields(child))
+	}
+	f.selection.AddFragment("CWorkspaceSub", child)
+	return f
+}
+
+// OnChannel selects fields that only exist when the result is a
+// Channel (an inline fragment: ... on Channel).
+func (f *NodeFields) OnChannel(selector func(*ChannelFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewChannelFields(child))
+	}
+	f.selection.AddFragment("Channel", child)
+	return f
+}
+
+// OnChannelUser selects fields that only exist when the result is a
+// ChannelUser (an inline fragment: ... on ChannelUser).
+func (f *NodeFields) OnChannelUser(selector func(*ChannelUserFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewChannelUserFields(child))
+	}
+	f.selection.AddFragment("ChannelUser", child)
+	return f
+}
+
+// OnChatbot selects fields that only exist when the result is a
+// Chatbot (an inline fragment: ... on Chatbot).
+func (f *NodeFields) OnChatbot(selector func(*ChatbotFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewChatbotFields(child))
+	}
+	f.selection.AddFragment("Chatbot", child)
+	return f
+}
+
+// OnChatbotTool selects fields that only exist when the result is a
+// ChatbotTool (an inline fragment: ... on ChatbotTool).
+func (f *NodeFields) OnChatbotTool(selector func(*ChatbotToolFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewChatbotToolFields(child))
+	}
+	f.selection.AddFragment("ChatbotTool", child)
+	return f
+}
+
+// OnChatbotUser selects fields that only exist when the result is a
+// ChatbotUser (an inline fragment: ... on ChatbotUser).
+func (f *NodeFields) OnChatbotUser(selector func(*ChatbotUserFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewChatbotUserFields(child))
+	}
+	f.selection.AddFragment("ChatbotUser", child)
+	return f
+}
+
+// OnCredential selects fields that only exist when the result is a
+// Credential (an inline fragment: ... on Credential).
+func (f *NodeFields) OnCredential(selector func(*CredentialFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewCredentialFields(child))
+	}
+	f.selection.AddFragment("Credential", child)
+	return f
+}
+
+// OnFolder selects fields that only exist when the result is a
+// Folder (an inline fragment: ... on Folder).
+func (f *NodeFields) OnFolder(selector func(*FolderFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewFolderFields(child))
+	}
+	f.selection.AddFragment("Folder", child)
+	return f
+}
+
+// OnFuncTool selects fields that only exist when the result is a
+// FuncTool (an inline fragment: ... on FuncTool).
+func (f *NodeFields) OnFuncTool(selector func(*FuncToolFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewFuncToolFields(child))
+	}
+	f.selection.AddFragment("FuncTool", child)
+	return f
+}
+
+// OnFuncToolLog selects fields that only exist when the result is a
+// FuncToolLog (an inline fragment: ... on FuncToolLog).
+func (f *NodeFields) OnFuncToolLog(selector func(*FuncToolLogFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewFuncToolLogFields(child))
+	}
+	f.selection.AddFragment("FuncToolLog", child)
+	return f
+}
+
+// OnGuest selects fields that only exist when the result is a
+// Guest (an inline fragment: ... on Guest).
+func (f *NodeFields) OnGuest(selector func(*GuestFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewGuestFields(child))
+	}
+	f.selection.AddFragment("Guest", child)
+	return f
+}
+
+// OnItem selects fields that only exist when the result is a
+// Item (an inline fragment: ... on Item).
+func (f *NodeFields) OnItem(selector func(*ItemFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewItemFields(child))
+	}
+	f.selection.AddFragment("Item", child)
+	return f
+}
+
+// OnItemGroup selects fields that only exist when the result is a
+// ItemGroup (an inline fragment: ... on ItemGroup).
+func (f *NodeFields) OnItemGroup(selector func(*ItemGroupFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewItemGroupFields(child))
+	}
+	f.selection.AddFragment("ItemGroup", child)
+	return f
+}
+
+// OnItemGroupSource selects fields that only exist when the result is a
+// ItemGroupSource (an inline fragment: ... on ItemGroupSource).
+func (f *NodeFields) OnItemGroupSource(selector func(*ItemGroupSourceFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewItemGroupSourceFields(child))
+	}
+	f.selection.AddFragment("ItemGroupSource", child)
+	return f
+}
+
+// OnLead selects fields that only exist when the result is a
+// Lead (an inline fragment: ... on Lead).
+func (f *NodeFields) OnLead(selector func(*LeadFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewLeadFields(child))
+	}
+	f.selection.AddFragment("Lead", child)
+	return f
+}
+
+// OnMessage selects fields that only exist when the result is a
+// Message (an inline fragment: ... on Message).
+func (f *NodeFields) OnMessage(selector func(*MessageFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewMessageFields(child))
+	}
+	f.selection.AddFragment("Message", child)
+	return f
+}
+
+// OnTmpItem selects fields that only exist when the result is a
+// TmpItem (an inline fragment: ... on TmpItem).
+func (f *NodeFields) OnTmpItem(selector func(*TmpItemFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewTmpItemFields(child))
+	}
+	f.selection.AddFragment("TmpItem", child)
+	return f
+}
+
+// OnUser selects fields that only exist when the result is a
+// User (an inline fragment: ... on User).
+func (f *NodeFields) OnUser(selector func(*UserFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewUserFields(child))
+	}
+	f.selection.AddFragment("User", child)
 	return f
 }

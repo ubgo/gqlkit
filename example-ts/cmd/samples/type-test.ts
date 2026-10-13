@@ -4,6 +4,8 @@
 import { GraphQLClient } from "gqlkit-ts";
 import { QueryRoot } from "../../sdk/queries";
 import { MutationRoot } from "../../sdk/mutations";
+import type { SelectionRequired } from "../../sdk/builder";
+import type { TodosConnectionBuilder } from "../../sdk/queries/todos-connection";
 
 const client = new GraphQLClient("http://localhost/graphql");
 const qr = new QueryRoot(client);
@@ -42,8 +44,9 @@ async function testTodosConnection() {
   const tags: string[] = result.edges[0].node.tags;
   const hasNext: boolean = result.pageInfo.hasNextPage;
 
-  // Optional field (priority is nullable in schema):
-  const priority: number | undefined = result.edges[0].node.priority;
+  // Nullable field (priority is nullable in schema): always present once
+  // selected, and null when the server has no value.
+  const priority: number | null = result.edges[0].node.priority;
 
   console.log(count, cursor, id, text, done, tags, hasNext, priority);
 }
@@ -66,7 +69,7 @@ async function testNestedSelect() {
 
   const node = result.edges[0].node;
   const userName: string = node.user.name;
-  const userEmail: string | undefined = node.user.email;
+  const userEmail: string | null = node.user.email;
   console.log(userName, userEmail);
 }
 
@@ -90,7 +93,7 @@ async function testTodosListSelect() {
 async function testNullableSelect() {
   const result = await qr
     .todo()
-    .id("todo-1")
+    .id("1")
     .select((t) => t.id().text())
     .execute();
 
@@ -102,20 +105,22 @@ async function testNullableSelect() {
   }
 }
 
-// Test: without select, returns full type
-async function testWithoutSelect() {
-  const result = await qr.todosConnection().execute();
-  // result is TodoConnection (full type)
-  const count: number = result.totalCount;
-  const edges = result.edges;
-  console.log(count, edges);
+// Test: an object-returning builder starts as SelectionRequired, so
+// `qr.todosConnection().execute()` without select() does not compile
+// (TS2684: the 'this' context ... is not assignable to method's 'this' of
+// type 'never'). The server would reject it anyway. This annotation pins the
+// default type; the negative case is documented in
+// docs/typescript/selecting-fields.md.
+function testWithoutSelect() {
+  const unselected: TodosConnectionBuilder<SelectionRequired> = qr.todosConnection();
+  console.log(unselected);
 }
 
 // Test: mutation with select
 async function testMutationSelect() {
   const result = await mr
     .createTodo()
-    .input({ text: "Test", userId: "user-1" })
+    .input({ text: "Test", userId: "1" })
     .select((t) => t.id().text().done())
     .execute();
 

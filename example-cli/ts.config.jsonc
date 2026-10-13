@@ -1,0 +1,23 @@
+// Scalar bindings for `gqlkit generate-ts` (the TypeScript SDK).
+// Each value is either a TypeScript type as a string, or an object with a
+// "type" and optionally an npm "import" and a runtime codec. This is NOT the
+// Go format: a {"model": ...} object here is rejected.
+{
+  "bindings": {
+    // A codec: the SDK calls decodeDate on every DateTime in a response and
+    // encodeDate on every DateTime it sends, so app code sees real Date
+    // objects. codecImport is resolved from the generated sdk/scalars/
+    // directory; generate-ts.sh writes codecs.ts next to sdk/.
+    "DateTime": {
+      "type": "Date",
+      "decode": "decodeDate",
+      "encode": "encodeDate",
+      "codecImport": "../../codecs.js"
+    },
+    // An inline type alias.
+    "Cursor": "string",
+    // Re-exported from an npm package: the app must depend on type-fest.
+    "JSON": { "type": "JsonValue", "import": "type-fest" }
+    // Not listed and not built in, so it falls back to any: Metadata.
+  }
+}

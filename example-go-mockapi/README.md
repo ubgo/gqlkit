@@ -1,119 +1,70 @@
-# example-go-mockapi — Go SDK Example (Mock API)
+# example-go-mockapi — Go SDK examples against the mock API
 
-Demonstrates generating and using a Go SDK from the [mockapi](../mockapi) test GraphQL server.
+A generated Go SDK for the [mockapi](../mockapi) test server, plus one small program per feature. Every program here is quoted by a page in [`docs/go/`](../docs/go), and every program except `generate` and `samples` has a test that runs it against mockapi and checks the output the docs show.
 
-## Quick Start
-
-```bash
-# 1. Start the mock API (in another terminal)
-cd ../mockapi && go run server.go
-
-# 2. Generate the SDK
-go run ./cmd/generate
-
-# 3. Run sample queries
-go run ./cmd/samples
-```
-
-Or via Taskfile:
+## Quick start
 
 ```bash
-task mockapi:run                    # Start API
-task example-go-mockapi:fetch-schema  # Fetch schema from running API
-task example-go-mockapi:generate      # Generate SDK
-task example-go-mockapi:run           # Run sample queries
+# 1. Start the mock API (in another terminal), from the repo root
+task mockapi:run
+
+# 2. Run any example
+cd example-go-mockapi
+go run ./cmd/client-options
+
+# 3. Run every example's test (fails, never skips, if mockapi is down)
+go test -count=1 ./...
 ```
+
+`-count=1` matters here: the tests depend on a live server, and Go's test cache cannot see that. To point the examples at another address, set `MOCKAPI_URL` (default `http://localhost:8081/query`).
+
+## Which program shows what
+
+| Program | Shows | Guide |
+| --- | --- | --- |
+| [`cmd/client-options`](cmd/client-options/main.go) | `WithAuthToken`, `WithHeader`, `WithHeaders`, `WithHTTPClient` with a timeout and a recording transport, the header as the server received it, a per-call `context` deadline | [Client](../docs/go/client.md) |
+| [`cmd/selecting-fields`](cmd/selecting-fields/main.go) | self-referencing field (`Todo.parent`) to a chosen depth, an empty nested selector being dropped, a `Node` interface and a `SearchResult` union with `On<Type>` fragments and `<Name>Value` wrappers, an unknown union member | [Selecting fields](../docs/go/selecting-fields.md) |
+| [`cmd/enums-and-inputs`](cmd/enums-and-inputs/main.go) | enum constants, an enum argument with and without the schema default, optional input fields as pointers, unselected fields as zero values, clearing a list with `[]`, `inputs.Opt[T]` with `Some` / `Null`, scalar types (`time.Time`, `json.RawMessage`, `any`) | [Arguments and inputs](../docs/go/arguments-and-inputs.md), [Types and scalars](../docs/go/types-and-scalars.md) |
+| [`cmd/errors`](cmd/errors/main.go) | `GraphQLErrors` with `extensions.code`, partial data from a batch with `*batch.Error`, a 422 validation failure (also `GraphQLErrors`), `*graphqlclient.HTTPError` from a non-GraphQL 502, a transport error, a non-JSON 200 | [Errors](../docs/go/errors.md) |
+| [`cmd/batch-mutations`](cmd/batch-mutations/main.go) | `batch.RunMutations`, the merged document (sorted aliases, `$alias_arg` variables), `ErrInvalidAlias` / `ErrNilBuilder` before sending, and a test that proves a mutation in `RunQueries` does not compile | [Batching](../docs/go/batching.md) |
+| [`cmd/low-level`](cmd/low-level/main.go) | `BuildQuery` / `GetVariables`, a field added through `GetSelection`, `ExecuteRaw`, `Client.Execute`, `Client.RawQuery`, `Client.ExecuteWithPartialData` | [Low-level builder](../docs/go/low-level-builder.md) |
+| [`cmd/samples`](cmd/samples/main.go) | a tour: ping, arguments, users, list with filter and pagination, connection, typed union, JSON scalar, custom scalars, todo create/update/delete, `batch.RunQueries` | [Getting started — Go](../docs/getting-started-go.md) |
+| [`cmd/generate`](cmd/generate/main.go) | generating this SDK from Go code with `clientgen.New` and a `config.jsonc` | [Getting started — Go: Option B](../docs/getting-started-go.md#option-b--go-script-for-more-control) |
+
+Each example writes its output into a `strings.Builder` (the `w` parameter in the quoted functions), which cannot fail, and `mockapi.Finish` prints it in one checked write and exits non-zero on any error. Two helper packages are shared by the examples: [`internal/mockapi`](internal/mockapi/mockapi.go) (the endpoint, `MOCKAPI_URL` and `Finish`) and [`internal/wiretap`](internal/wiretap/wiretap.go) (an `http.RoundTripper` that records what the client sends, used to print headers and batch documents). Tests use [`internal/mockapitest`](internal/mockapitest/mockapitest.go) to fail with a clear message when mockapi is not reachable.
+
+## Shared state
+
+mockapi keeps its data in memory and every client shares it. The examples delete the todos they create; `upsertUser` has no delete, so `enums-and-inputs` adds two users named `Eve` per run. `cmd/samples` marks every todo as done (`completeAllTodos`). Restart mockapi to get the seed data back.
 
 ## Structure
 
 ```
 cmd/
-  generate/
-    main.go              SDK generator entry point
-    schema.graphql       GraphQL schema (fetched from mockapi)
-    config.jsonc         Scalar type bindings
-  samples/
-    main.go              Sample queries and mutations demonstrating the SDK
+  generate/              SDK generator (clientgen.New), schema.graphql, config.jsonc
+  samples/               Tour of the SDK
+  client-options/        One feature per folder, each with main.go + main_test.go
+  selecting-fields/
+  enums-and-inputs/
+  errors/
+  batch-mutations/       testdata/mixed/ holds the program that must not compile
+  low-level/
+internal/
+  mockapi/               Endpoint + MOCKAPI_URL
+  mockapitest/           Require(t): fail when mockapi is down
+  wiretap/               Recording http.RoundTripper
 sdk/                     Generated SDK (do not edit)
   builder/               FieldSelection + BaseBuilder runtime
-  scalars/               Scalar type aliases
-  enums/                 Role enum (ADMIN, USER, GUEST)
-  types/                 Go structs (Todo, User, PageInfo, etc.)
-  inputs/                Input structs (NewTodo, TodoFilter, etc.)
-  fields/                Type-safe field selectors
-  queries/               Query builders + QueryRoot
-  mutations/             Mutation builders + MutationRoot
-  batch/                 Single-request multi-query helper (RunQueries / RunMutations)
+  graphqlclient/         HTTP client and options
+  batch/                 RunQueries / RunMutations
+  scalars/ enums/ types/ inputs/ fields/ queries/ mutations/
 ```
 
-## SDK Usage Examples
-
-```go
-client := graphqlclient.NewClient("http://localhost:8081/query")
-qr := queries.NewQueryRoot(client)
-mr := mutations.NewMutationRoot(client)
-
-// Simple scalar query
-ping, _ := qr.Ping().Execute(ctx)
-
-// Query with args
-sum, _ := qr.Sum().A(10).B(20).Execute(ctx)
-
-// Query with filter, pagination, and nested field selection
-todos, _ := qr.Todos().
-    Filter(&inputs.TodoFilter{TextContains: strPtr("todo")}).
-    Pagination(&inputs.PaginationInput{Limit: 10}).
-    Select(func(f *fields.TodoFields) {
-        f.ID().Text().Done().User(func(u *fields.UserFields) {
-            u.ID().Name()
-        })
-    }).
-    Execute(ctx)
-
-// Relay-style cursor pagination
-conn, _ := qr.TodosConnection().
-    Select(func(c *fields.TodoConnectionFields) {
-        c.TotalCount().
-            Edges(func(e *fields.TodoEdgeFields) {
-                e.Cursor().Node(func(t *fields.TodoFields) {
-                    t.ID().Text()
-                })
-            }).
-            PageInfo(func(p *fields.PageInfoFields) {
-                p.HasNextPage().EndCursor()
-            })
-    }).
-    Execute(ctx)
-
-// Mutation
-created, _ := mr.CreateTodo().
-    Input(inputs.NewTodo{Text: "New todo", UserID: "1"}).
-    Select(func(f *fields.TodoFields) { f.ID().Text() }).
-    Execute(ctx)
-
-// Batch — three queries, one HTTP request
-type Dashboard struct {
-    Open      []types.Todo `json:"open"`
-    Completed []types.Todo `json:"completed"`
-    Users     []types.User `json:"users"`
-}
-var r Dashboard
-_ = batch.RunQueries(ctx, &r, batch.QueryItems{
-    "open":      qr.Todos().Filter(&inputs.TodoFilter{Done: boolPtr(false)}).Select(...),
-    "completed": qr.Todos().Filter(&inputs.TodoFilter{Done: boolPtr(true)}).Select(...),
-    "users":     qr.Users().Select(...),
-})
-// r.Open, r.Completed, r.Users typed by the result struct
-```
-
-`runBatch` in `cmd/samples/main.go` is a runnable version of the batch example.
-
-## Fetching the Schema
-
-To re-fetch the schema from a running mockapi instance:
+## Regenerating the SDK
 
 ```bash
-task example-go-mockapi:fetch-schema
-# or manually:
-go run ../gqlkit-sdl fetch --url http://localhost:8081/query --output cmd/generate/schema.graphql
+task example-go-mockapi:fetch-schema  # re-fetch the schema from a running mockapi
+task example-go-mockapi:generate      # regenerate sdk/
 ```
+
+After regenerating, run `go test -count=1 ./...` here: the tests pin the behaviour the guides describe, so a generator change that alters any of it shows up as a failing test with the guide page named in the test's comment.

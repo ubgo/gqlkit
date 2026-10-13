@@ -1,4 +1,12 @@
 {
+  // Default optional-field mode is pointers; these two fields use Opt[T]
+  // (Some/Null) so the Go guides can show both input modes against one SDK.
+  "inputs": {
+    "overrides": {
+      "UpdateTodoInput.priority": "opt",
+      "UpdateTodoInput.text": "opt"
+    }
+  },
   "bindings": {
     "Time": {
       "model": "time.Time"
@@ -11,7 +19,8 @@
     "DateTime": {
       "model": "time.Time"
     }
-    // JSON and Metadata are intentionally NOT mapped here.
-    // They will fall back to `any` (interface{}) in the generated Go SDK.
+    // JSON and Metadata are intentionally NOT mapped here. JSON is a
+    // built-in mapping (json.RawMessage); Metadata has no built-in, so it
+    // falls back to `any` in the generated Go SDK.
   }
 }

@@ -35,6 +35,8 @@ Thanks for your interest in improving **gqlkit**. By participating you agree to 
 | [example-go-chat](./example-go-chat) | Example: Go SDK from a production chatbot schema (~50 queries, ~57 mutations) |
 | [example-go-mockapi](./example-go-mockapi) | Example: Go SDK from the test API |
 | [example-ts](./example-ts) | Example: TypeScript SDK from the test API |
+| [example-cli](./example-cli) | Example: the two CLIs end to end as shell scripts |
+| [docs](./docs) | User guides; start at [docs/README.md](./docs/README.md) |
 
 ## Requirements
 
@@ -44,9 +46,9 @@ Thanks for your interest in improving **gqlkit**. By participating you agree to 
 
 ## Development — TypeScript SDK
 
-Generates a fully typed TypeScript SDK from a GraphQL schema. Returns **only the selected fields** — unselected fields are compile-time errors.
+Generates a fully typed TypeScript SDK from a GraphQL schema. Results are narrowed to **only the selected fields**, so reading an unselected field is a compile-time error. (The Go SDK does not narrow: its results are full structs with zero values for unselected fields.)
 
-Full technical docs: [example-ts/DOCS.md](./example-ts/DOCS.md)
+Full technical docs: [docs/typescript-codegen.md](./docs/typescript-codegen.md)
 
 ### 1. Start the GraphQL server
 
@@ -148,6 +150,16 @@ task example-go-mockapi:generate
 task example-go-mockapi:run
 ```
 
+### Regenerating mockapi
+
+`mockapi` is a gqlgen server. After changing its schema, regenerate its Go code with:
+
+```bash
+task mockapi:generate
+```
+
+The task pins `GOTOOLCHAIN=go1.25.5` (and `GOWORK=off`) because gqlgen v0.17.87 cannot load packages under newer toolchains: under Go 1.27 it fails with `package ... without types`. Do not run `go run github.com/99designs/gqlgen generate` by hand with your default toolchain.
+
 ## Testing
 
 Each Go module is tested in isolation (the repo uses a `go.work`, so tests run with `GOWORK=off`):
@@ -156,6 +168,13 @@ Each Go module is tested in isolation (the repo uses a `go.work`, so tests run w
 cd gqlkit     && GOWORK=off go test ./...
 cd gqlkit-sdl && GOWORK=off go test ./...
 cd gqlkit-ts  && npm test
+```
+
+The examples are checked against the running test server by one task. Start `task mockapi:run` in another terminal first; the task fails straight away with a clear message when mockapi is down:
+
+```bash
+task examples:test   # Go guide programs, TypeScript samples and example-cli, against mockapi
+task docs:check      # links, anchors and formatting of every markdown file
 ```
 
 The generator has a two-layer test suite in `gqlkit/pkg/clientgen` and `gqlkit/pkg/clientgents`: targeted unit tests on the type-mapping functions **plus** end-to-end guards that generate an SDK and then `go build` / `tsc` it. New generator behavior should ship with both where it makes sense. **After any template or generator change, regenerate the examples and confirm they build** (`task example-ts:test`, and rebuild `example-go-mockapi/sdk`) — this catches template regressions the unit tests can't.
@@ -178,6 +197,8 @@ The generator has a two-layer test suite in `gqlkit/pkg/clientgen` and `gqlkit/p
 - [ ] `go test ./...` (each Go module) and `npm test` (gqlkit-ts) pass; `gofmt` and `go vet` are clean.
 - [ ] New behavior has tests where it makes sense.
 - [ ] Generator/template changes were verified by regenerating the examples.
+- [ ] `task examples:test` passes with mockapi running (`task mockapi:run`).
+- [ ] Docs changes pass `task docs:check`, and every feature you add or change is linked from [docs/reference/features.md](./docs/reference/features.md) to a guide and a runnable example.
 - [ ] The affected artifact's `CHANGELOG.md` is updated under `[Unreleased]` for user-facing changes.
 - [ ] No unrelated files or formatting churn.
 

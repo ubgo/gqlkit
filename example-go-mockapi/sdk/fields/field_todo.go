@@ -67,3 +67,13 @@ func (f *TodoFields) Metadata() *TodoFields {
 	f.selection.AddField("metadata")
 	return f
 }
+
+// Parent selects the parent field with nested selection
+func (f *TodoFields) Parent(selector func(*TodoFields)) *TodoFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewTodoFields(child))
+	}
+	f.selection.AddChild("parent", child)
+	return f
+}

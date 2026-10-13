@@ -7,6 +7,9 @@ import (
 	"example-go-chat/sdk/graphqlclient"
 	"fmt"
 	"log"
+	"os"
+	"sort"
+	"strings"
 
 	"example-go-chat/sdk/fields"
 	"example-go-chat/sdk/inputs"
@@ -14,49 +17,105 @@ import (
 	"example-go-chat/sdk/queries"
 )
 
+// Environment variables that configure the private chat API. The server,
+// workspace and token belong to a private project, so nothing is hard-coded:
+// without them the client still builds, and the server rejects the call.
+const (
+	envURL         = "CHAT_API_URL"
+	envWorkspaceID = "CHAT_WORKSPACE_ID"
+	envToken       = "CHAT_TOKEN"
+
+	// defaultURL is where the private chat API listens in its own dev setup.
+	defaultURL = "http://localhost:2310/api/sa/query"
+)
+
+// defaultSamples run when no sample names are given on the command line;
+// they are the two the program has always run.
+var defaultSamples = []string{"ping", "chatbots"}
+
+// sample is one runnable demo. Each receives both roots and uses the one it needs.
+type sample func(ctx context.Context, qr *queries.QueryRoot, mr *mutations.MutationRoot) error
+
+// samples maps the names accepted on the command line to their demos.
+// Order of execution follows the command-line order, not this map.
+var samples = map[string]sample{
+	"ping": func(ctx context.Context, qr *queries.QueryRoot, _ *mutations.MutationRoot) error {
+		return runPing(ctx, qr)
+	},
+	"chatbots": func(ctx context.Context, qr *queries.QueryRoot, _ *mutations.MutationRoot) error {
+		return runChatbots(ctx, qr)
+	},
+	"credentials": func(ctx context.Context, qr *queries.QueryRoot, _ *mutations.MutationRoot) error {
+		return runCredentials(ctx, qr)
+	},
+	"users": func(ctx context.Context, qr *queries.QueryRoot, _ *mutations.MutationRoot) error {
+		return runUsers(ctx, qr)
+	},
+	"folders": func(ctx context.Context, qr *queries.QueryRoot, _ *mutations.MutationRoot) error {
+		return runFolders(ctx, qr)
+	},
+	"chatbots-nested": func(ctx context.Context, qr *queries.QueryRoot, _ *mutations.MutationRoot) error {
+		return runChatbotsNested(ctx, qr)
+	},
+	"folders-nested": func(ctx context.Context, qr *queries.QueryRoot, _ *mutations.MutationRoot) error {
+		return runFoldersNested(ctx, qr)
+	},
+	"channels-nested": func(ctx context.Context, qr *queries.QueryRoot, _ *mutations.MutationRoot) error {
+		return runChannelsNested(ctx, qr)
+	},
+	"html-to-markdown": func(ctx context.Context, _ *queries.QueryRoot, mr *mutations.MutationRoot) error {
+		return runHTMLToMarkdown(ctx, mr)
+	},
+}
+
+// sampleNames returns every registered sample name, sorted, for usage text.
+func sampleNames() []string {
+	names := make([]string, 0, len(samples))
+	for name := range samples {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// Usage: go run ./cmd/samples [name ...]   (or "all"; default: ping chatbots)
 func main() {
-	fmt.Println("Hello, World!")
-	client := graphqlclient.NewClient("http://localhost:2310/api/sa/query",
-		graphqlclient.WithHeaders(map[string]string{
-			"x-workspace-id": "REDACTED_WORKSPACE_ID",
-			"token":          "REDACTED_JWT",
-		}),
-	)
+	names := os.Args[1:]
+	switch {
+	case len(names) == 0:
+		names = defaultSamples
+	case len(names) == 1 && names[0] == "all":
+		names = sampleNames()
+	}
+	for _, name := range names {
+		if _, ok := samples[name]; !ok {
+			log.Fatalf("unknown sample %q; choose from: all %s", name, strings.Join(sampleNames(), " "))
+		}
+	}
+
+	url := os.Getenv(envURL)
+	if url == "" {
+		url = defaultURL
+	}
+	headers := map[string]string{}
+	if v := os.Getenv(envWorkspaceID); v != "" {
+		headers["x-workspace-id"] = v
+	}
+	if v := os.Getenv(envToken); v != "" {
+		headers["token"] = v
+	}
+	client := graphqlclient.NewClient(url, graphqlclient.WithHeaders(headers))
 
 	ctx := context.Background()
-
-	// Create query and mutation roots
 	qr := queries.NewQueryRoot(client)
-	// mr := mutations.NewMutationRoot(client)
+	mr := mutations.NewMutationRoot(client)
 
-	if err := runPing(ctx, qr); err != nil {
-		debugPrintError(err)
-		log.Fatal(err)
+	for _, name := range names {
+		if err := samples[name](ctx, qr, mr); err != nil {
+			debugPrintError(err)
+			log.Fatalf("%s: %v", name, err)
+		}
 	}
-	if err := runChatbots(ctx, qr); err != nil {
-		log.Fatal(err)
-	}
-	// if err := runCredentials(ctx, qr); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// if err := runUsers(ctx, qr); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// if err := runFolders(ctx, qr); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// if err := runChatbotsNested(ctx, qr); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// if err := runFoldersNested(ctx, qr); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// if err := runChannelsNested(ctx, qr); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// if err := runHTMLToMarkdown(ctx, mr); err != nil {
-	// 	log.Fatal(err)
-	// }
 }
 
 func debugPrintError(err error) {

@@ -1,0 +1,127 @@
+<svg viewBox="0 0 880 580" width="880" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', system-ui, sans-serif; }
+  </style>
+  <defs>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="2" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,4 L0,8 L2,4 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="2" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,4 L0,8 L2,4 z" fill="#22c55e"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="8" markerHeight="8" refX="2" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,4 L0,8 L2,4 z" fill="#a855f7"/>
+    </marker>
+  </defs>
+
+  <!-- White canvas matching the viewBox, so the figure reads as a light card on GitHub's dark theme too. -->
+  <rect x="0" y="0" width="880" height="580" fill="#ffffff"/>
+
+  <!-- Title centred on the content centre: groups span x=25..855, centre 440. -->
+  <text x="440" y="34" font-size="16" fill="#1e293b" text-anchor="middle">How gqlkit fits together</text>
+
+  <!-- Layer 1: grouping boxes. Run time x=25..505, build time x=605..855, both y=56..533.
+       The 100px channel between them carries the two build-time arrows that cross over. -->
+  <rect x="25" y="56" width="480" height="477" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="6,4"/>
+  <text x="35" y="70" font-size="11" fill="#64748b">Run time: every call your app makes</text>
+  <rect x="605" y="56" width="250" height="477" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="6,4"/>
+  <text x="615" y="70" font-size="11" fill="#64748b">Build time: when the schema changes</text>
+  <!-- Generated SDK: x=45..485, y=166..345, 15px padding so its members sit at x=60..470.
+       The title stays short so it ends (x≈181) well left of the x=265 request column. -->
+  <rect x="45" y="166" width="440" height="179" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="6,4"/>
+  <text x="55" y="180" font-size="11" fill="#64748b">Generated SDK (./sdk)</text>
+
+  <!-- Layer 2: connectors. Requests run down the x=265 column (blue, through Builders),
+       responses run up the x=410 column (green, through Typed models). -->
+  <path d="M265,141 L 265,181" fill="none" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <path d="M265,251 L 265,265" fill="none" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <path d="M265,335 L 265,364" fill="none" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <path d="M265,434 L 265,448" fill="none" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <path d="M410,454 L 410,440" fill="none" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <path d="M410,370 L 410,341" fill="none" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <path d="M410,271 L 410,257" fill="none" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <path d="M410,187 L 410,147" fill="none" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <!-- Field selectors feed the builder's .Select() callback. -->
+  <path d="M185,219 L 194,219" fill="none" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <!-- Build time, bottom-up: server -> gqlkit-sdl -> schema.graphql -> gqlkit generate -> ./sdk.
+       Build boxes are staggered half a row against the run-time stack, so the server arrow
+       curves up into gqlkit-sdl; cp2 is level with the end so the head points right. -->
+  <path d="M490,486 C 560,486 560,445 609,445" fill="none" stroke="#a855f7" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <path d="M730,407 L 730,397" fill="none" stroke="#a855f7" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <path d="M730,315 L 730,305" fill="none" stroke="#a855f7" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <path d="M730,205 L 730,217" fill="none" stroke="#a855f7" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <path d="M615,261 L 496,261" fill="none" stroke="#a855f7" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+
+  <!-- Connector labels: run-time labels end 12px left of their line; build labels sit right of
+       their line, or above / below it in the channel. -->
+  <text x="253" y="155" font-size="10" fill="#1e40af" text-anchor="end">1  .Select() fields</text>
+  <text x="253" y="265" font-size="10" fill="#1e40af" text-anchor="end">2  query + variables</text>
+  <text x="253" y="363" font-size="10" fill="#1e40af" text-anchor="end">3  POST {query, variables}</text>
+  <text x="253" y="447" font-size="10" fill="#1e40af" text-anchor="end">4  resolve</text>
+  <text x="398" y="447" font-size="10" fill="#166534" text-anchor="end">5  {data, errors}</text>
+  <text x="398" y="363" font-size="10" fill="#166534" text-anchor="end">6  decode JSON</text>
+  <text x="398" y="265" font-size="10" fill="#166534" text-anchor="end">7  into types</text>
+  <text x="398" y="155" font-size="10" fill="#166534" text-anchor="end">8  typed result</text>
+  <text x="555" y="508" font-size="10" fill="#6b21a8" text-anchor="middle">A  introspect</text>
+  <text x="742" y="403" font-size="10" fill="#6b21a8">B  save SDL</text>
+  <text x="742" y="311" font-size="10" fill="#6b21a8">C  read</text>
+  <text x="742" y="218" font-size="10" fill="#6b21a8">bindings</text>
+  <text x="555" y="248" font-size="10" fill="#6b21a8" text-anchor="middle">D  writes ./sdk</text>
+
+  <!-- Layer 3: boxes and their text. Main column x=45..485 (centre 265). Two-line boxes put the
+       block midpoint at box centre + 3.85 (the mean of 12 × 0.35 and 10 × 0.35). -->
+  <!-- Your app: y=82..136 -->
+  <rect x="45" y="82" width="440" height="54" rx="6" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="265" y="104" font-size="12" fill="#1e40af" text-anchor="middle">Your app code</text>
+  <text x="265" y="122" font-size="10" fill="#64748b" text-anchor="middle">Go: qr.Todos().Select(…).Execute(ctx) · TS: qr.todos().select(…).execute()</text>
+
+  <!-- SDK row a: y=192..246, three 120px boxes 25px apart; Builders sits on the request column. -->
+  <rect x="60" y="192" width="120" height="54" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="120" y="214" font-size="12" fill="#b45309" text-anchor="middle">Field selectors</text>
+  <text x="120" y="232" font-size="10" fill="#64748b" text-anchor="middle">fields</text>
+  <rect x="205" y="192" width="120" height="54" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="265" y="214" font-size="12" fill="#b45309" text-anchor="middle">Builders</text>
+  <text x="265" y="232" font-size="10" fill="#64748b" text-anchor="middle">queries · mutations</text>
+  <rect x="350" y="192" width="120" height="54" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="410" y="214" font-size="12" fill="#b45309" text-anchor="middle">Typed models</text>
+  <text x="410" y="232" font-size="10" fill="#64748b" text-anchor="middle">types · inputs</text>
+
+  <!-- SDK row b: y=276..330 -->
+  <rect x="60" y="276" width="410" height="54" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="265" y="298" font-size="12" fill="#b45309" text-anchor="middle">Runtime core: builder · graphqlclient · batch</text>
+  <text x="265" y="316" font-size="10" fill="#64748b" text-anchor="middle">Go: emitted into ./sdk, no gqlkit import · TS: from the gqlkit-ts package</text>
+
+  <!-- HTTP: y=375..429 -->
+  <rect x="45" y="375" width="440" height="54" rx="6" fill="#ffffff" stroke="#94a3b8"/>
+  <text x="265" y="397" font-size="12" fill="#1e293b" text-anchor="middle">HTTP</text>
+  <text x="265" y="415" font-size="10" fill="#64748b" text-anchor="middle">JSON POST · auth token, headers, your own http.Client or fetch</text>
+
+  <!-- GraphQL server: y=459..513 -->
+  <rect x="45" y="459" width="440" height="54" rx="6" fill="#d1fae5" stroke="#22c55e"/>
+  <text x="265" y="481" font-size="12" fill="#166534" text-anchor="middle">GraphQL server</text>
+  <text x="265" y="499" font-size="10" fill="#64748b" text-anchor="middle">any endpoint · this repo's examples run mockapi (gqlgen, :8081)</text>
+
+  <!-- Build column: x=620..840 (centre 730), 66px boxes 26-28px apart, offset so none shares
+       more than a third of its height with a run-time row. -->
+  <!-- config.jsonc: y=134..200 -->
+  <rect x="620" y="134" width="220" height="66" rx="6" fill="#f3e8ff" stroke="#a855f7"/>
+  <text x="730" y="162" font-size="12" fill="#6b21a8" text-anchor="middle">config.jsonc (optional)</text>
+  <text x="730" y="180" font-size="10" fill="#64748b" text-anchor="middle">custom scalar → Go / TS type bindings</text>
+  <!-- gqlkit generate: y=228..294 -->
+  <rect x="620" y="228" width="220" height="66" rx="6" fill="#f3e8ff" stroke="#a855f7"/>
+  <text x="730" y="256" font-size="12" fill="#6b21a8" text-anchor="middle">gqlkit generate</text>
+  <text x="730" y="274" font-size="10" fill="#64748b" text-anchor="middle">or generate-ts · templates → SDK</text>
+  <!-- schema.graphql: y=320..386 -->
+  <rect x="620" y="320" width="220" height="66" rx="6" fill="#f3e8ff" stroke="#a855f7"/>
+  <text x="730" y="348" font-size="12" fill="#6b21a8" text-anchor="middle">schema.graphql</text>
+  <text x="730" y="366" font-size="10" fill="#64748b" text-anchor="middle">SDL file, or one you already have</text>
+  <!-- gqlkit-sdl: y=412..478 -->
+  <rect x="620" y="412" width="220" height="66" rx="6" fill="#f3e8ff" stroke="#a855f7"/>
+  <text x="730" y="440" font-size="12" fill="#6b21a8" text-anchor="middle">gqlkit-sdl fetch --url</text>
+  <text x="730" y="458" font-size="10" fill="#64748b" text-anchor="middle">introspection query → SDL</text>
+
+  <!-- Key, below the body: each entry is written in its flow's colour. -->
+  <text x="280" y="556" font-size="10" fill="#1e40af" text-anchor="middle">blue: request, 1 to 4</text>
+  <text x="440" y="556" font-size="10" fill="#166534" text-anchor="middle">green: response, 5 to 8</text>
+  <text x="600" y="556" font-size="10" fill="#6b21a8" text-anchor="middle">purple: codegen, A to D</text>
+</svg>

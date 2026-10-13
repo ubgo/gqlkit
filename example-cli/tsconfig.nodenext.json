@@ -1,0 +1,15 @@
+{
+  // Type-checks the same out/ts-app sources as a Node ESM project
+  // ("module": "nodenext", with out/ts-app/package.json {"type": "module"}),
+  // to prove the generated SDK compiles there too. Used by test.sh only.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["out/ts-app/**/*.ts"]
+}

@@ -143,7 +143,7 @@ async function runUsers(qr: QueryRoot) {
 async function runCreateTodo(mr: MutationRoot) {
   const result = await mr
     .createTodo()
-    .input({ text: "Buy milk", userId: "user-1" })
+    .input({ text: "Buy milk", userId: "1" })
     .select((t) => t.id().text().done())
     .execute();
 
@@ -200,7 +200,7 @@ async function runTodos(qr: QueryRoot) {
 async function runTodo(qr: QueryRoot) {
   const result = await qr
     .todo()
-    .id("todo-1")
+    .id("1")
     .select((t) => t.id().text().done().user((u) => u.id().name()))
     .execute();
 
@@ -210,7 +210,7 @@ async function runTodo(qr: QueryRoot) {
 async function runUser(qr: QueryRoot) {
   const result = await qr
     .user()
-    .id("user-1")
+    .id("1")
     .select((u) => u.id().name().email().role())
     .execute();
 

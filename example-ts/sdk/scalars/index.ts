@@ -3,6 +3,7 @@
 export type Boolean = boolean;
 export type Cursor = string;
 export type { DateTime } from "luxon";
+export { decodeDateTime as decodeDateTime, encodeDateTime as encodeDateTime } from "../../codecs/datetime.js";
 export type Float = number;
 export type GqlString = string;
 export type ID = string;

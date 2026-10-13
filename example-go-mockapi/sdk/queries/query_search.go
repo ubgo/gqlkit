@@ -5,6 +5,8 @@ package queries
 import (
 	"context"
 	"example-go-mockapi/sdk/builder"
+	"example-go-mockapi/sdk/fields"
+	"example-go-mockapi/sdk/types"
 )
 
 // SearchBuilder builds a query for search
@@ -23,13 +25,19 @@ func (b *SearchBuilder) Term(v string) *SearchBuilder {
 	return b
 }
 
+// Select configures which fields to return
+func (b *SearchBuilder) Select(selector func(*fields.SearchResultFields)) *SearchBuilder {
+	selector(fields.NewSearchResultFields(b.GetSelection()))
+	return b
+}
+
 // Execute runs the query and returns the result
-func (b *SearchBuilder) Execute(ctx context.Context) ([]interface{}, error) {
+func (b *SearchBuilder) Execute(ctx context.Context) ([]types.SearchResultValue, error) {
 	query := b.BuildQuery()
 	variables := b.GetVariables()
 
 	var response struct {
-		Result []interface{} `json:"search"`
+		Result []types.SearchResultValue `json:"search"`
 	}
 
 	if err := b.GetClient().Execute(ctx, query, variables, &response); err != nil {

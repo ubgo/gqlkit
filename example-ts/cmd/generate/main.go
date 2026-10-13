@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/ubgo/gqlkit/gqlkit/pkg/clientgents"
 )
@@ -17,13 +18,13 @@ func main() {
 
 	gen, err := clientgents.New(config)
 	if err != nil {
-		fmt.Printf("failed to create generator: %v\n", err)
-		return
+		fmt.Fprintf(os.Stderr, "failed to create generator: %v\n", err)
+		os.Exit(1)
 	}
 
 	if err := gen.Generate(); err != nil {
-		fmt.Printf("failed to generate SDK: %v\n", err)
-		return
+		fmt.Fprintf(os.Stderr, "failed to generate SDK: %v\n", err)
+		os.Exit(1)
 	}
 
 	fmt.Println("TypeScript SDK generation completed.")

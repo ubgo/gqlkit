@@ -1,0 +1,8 @@
+# Written when the programs are run by hand from this directory; the test
+# runs them in a temporary directory instead.
+/schema.graphql
+/schema.json
+/go.jsonc
+/ts.jsonc
+/sdk/
+/web/

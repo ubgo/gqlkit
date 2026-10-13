@@ -5,8 +5,17 @@
     "Time": "string",
     // Relay cursor — just an opaque string
     "Cursor": "string",
-    // Import DateTime type directly from the luxon npm package
-    "DateTime": { "type": "DateTime", "import": "luxon" },
+    // Import DateTime type from luxon, and decode/encode it with the codec in
+    // example-ts/codecs/datetime.ts so the runtime value really is a luxon
+    // DateTime. codecImport is emitted verbatim and resolved from sdk/scalars/;
+    // the .js suffix matches the SDK's own relative imports.
+    "DateTime": {
+      "type": "DateTime",
+      "import": "luxon",
+      "decode": "decodeDateTime",
+      "encode": "encodeDateTime",
+      "codecImport": "../../codecs/datetime.js"
+    },
     // Import JsonValue from type-fest and alias it as JSON
     "JSON": { "type": "JsonValue", "import": "type-fest" }
     // Metadata is intentionally NOT mapped here.

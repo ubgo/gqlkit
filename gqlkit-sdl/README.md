@@ -1,6 +1,11 @@
 # gqlkit-sdl
 
-A CLI tool that fetches a GraphQL schema from a live endpoint via introspection and converts it to SDL (Schema Definition Language) format.
+`gqlkit-sdl` fetches a GraphQL schema from a live endpoint by introspection and writes it as SDL (Schema Definition Language), the format [`gqlkit`](../gqlkit/README.md) generates SDKs from. It can also filter the schema down to the operations you use and prune the types nothing reaches any more, which keeps an SDK for a large vendor API small.
+
+- Step-by-step guides: [Fetch a schema](../docs/cli/fetch-schema.md) and [Filter a schema](../docs/cli/filter-schema.md).
+- Runnable: [`example-cli/fetch-and-filter.sh`](../example-cli/fetch-and-filter.sh) runs every flag on this page against the local test server.
+- Every flag with captured output: [CLI reference](../docs/cli-reference.md#gqlkit-sdl). Release history: [CHANGELOG](./CHANGELOG.md).
+- Not sure whether to fetch at all? [Where the schema comes from](../docs/choosing/schema-source.md).
 
 ## Installation
 
@@ -17,7 +22,7 @@ Download the latest release for your platform from [GitHub Releases](https://git
 ### From source
 
 ```bash
-go install gqlkit-sdl@latest
+go install github.com/ubgo/gqlkit/gqlkit-sdl@latest
 ```
 
 ## Usage
@@ -32,6 +37,7 @@ gqlkit-sdl <command> [flags]
 |-----------|------------------------------|
 | `fetch`   | Fetch schema and save as SDL |
 | `version` | Print version and exit       |
+| `completion` | Print a shell completion script |
 
 ### Flags (fetch)
 
@@ -40,8 +46,8 @@ gqlkit-sdl <command> [flags]
 | `--url`                | Yes      | —                | GraphQL endpoint URL                                     |
 | `-o`, `--output`       | No       | `schema.graphql` | Output file path                                         |
 | `-f`, `--format`       | No       | `graphql`        | Output format: `graphql` (SDL) or `json`                 |
-| `-H`, `--header`       | No       | —                | HTTP header in `Key:Value` format (repeatable)           |
-| `--debug`              | No       | —                | Print the curl command for debugging                     |
+| `-H`, `--header`       | No       | —                | HTTP header as `Key: Value` (a space after the colon is optional); repeatable |
+| `--debug`              | No       | —                | Print the equivalent curl command and exit without fetching |
 | `--only-queries`       | No       | —                | Keep only these query fields (comma-separated)           |
 | `--only-mutations`     | No       | —                | Keep only these mutation fields (comma-separated)        |
 | `--exclude-queries`    | No       | —                | Remove these query fields (comma-separated)              |
@@ -141,34 +147,69 @@ gqlkit-sdl fetch --url "https://example.com/graphql" \
 
 > **Tip:** `--only-*` is an allowlist — if set, only matching fields survive. `--exclude-*` is a denylist — matching fields are removed. When both are set on the same root type, the allowlist is applied first, then exclusions are applied to the result.
 
+## Pitfalls
+
+- **`--debug` fetches nothing.** It prints the curl command and exits; drop it to fetch. It is the fastest way to see exactly which headers are sent.
+- **A header needs a colon.** `-H "Authorization Bearer x"` is rejected. A repeated header keeps the last value, and a `Host` header sets the request's host rather than being sent as an ordinary header.
+- **Commas split filter values, including inside a regex.** `--only-queries "todos{1,2}"` becomes two patterns. Use alternation (`todo|todos`) instead of `{m,n}`.
+- **An invalid regex stops the fetch.** Nothing is written: `Error: filtering schema: invalid filter pattern "todo(": ...`.
+- **Filters remove root fields, not types.** Without `--remove-unused`, every type the removed operations used is still declared, and still generated.
+- **Emptying a root type.** Removing every query field is an error. Removing every mutation field drops the `Mutation` type and succeeds with only a note on stderr; check the output in scripts.
+- **JSON output is for other tools.** `gqlkit generate` reads SDL only, so keep the default format for the file you generate from.
+- **The CLI timeout is fixed at 2 minutes.** The Go API takes `FetchOptions.Timeout`.
+
+More, with the exact error text: [Fetch a schema: pitfalls](../docs/cli/fetch-schema.md#pitfalls) and [Filter a schema: pitfalls](../docs/cli/filter-schema.md#pitfalls).
+
 ## Go API
 
-The `schema` package can also be used programmatically:
+The `schema` package does everything the CLI does, from Go:
+
+```bash
+go get github.com/ubgo/gqlkit/gqlkit-sdl
+```
 
 ```go
-import "gqlkit-sdl/schema"
+import "github.com/ubgo/gqlkit/gqlkit-sdl/schema"
 
-opts := &schema.FetchOptions{
-    Headers: map[string]string{
-        "Authorization": "Bearer token",
-    },
-}
-
-introspectionSchema, err := schema.FetchSchema("https://graphql.anilist.co", opts)
-if err != nil {
-    log.Fatal(err)
-}
-
-// Optional: filter queries/mutations and remove unused types
-introspectionSchema = schema.FilterSchema(introspectionSchema, &schema.FilterOptions{
-    ExcludeQueries:   []string{"task.*", "space.*"},
-    ExcludeMutations: []string{"task.*", "space.*"},
-    RemoveUnused:     true,
+introspection, err := schema.FetchSchema("https://api.example.com/graphql", &schema.FetchOptions{
+	Headers: map[string]string{"Authorization": "Bearer " + os.Getenv("API_TOKEN")},
+	Timeout: 30 * time.Second, // zero means schema.DefaultFetchTimeout (2 minutes)
 })
+if err != nil {
+	log.Fatal(err)
+}
 
-sdl := schema.ConvertToSDL(introspectionSchema)
-err = schema.SaveToFile(sdl, "schema.graphql")
+// Optional: filter queries/mutations and remove unused types.
+trimmed, err := schema.FilterSchema(introspection, &schema.FilterOptions{
+	ExcludeQueries:   []string{"task.*", "space.*"},
+	ExcludeMutations: []string{"task.*", "space.*"},
+	RemoveUnused:     true,
+})
+if err != nil {
+	log.Fatal(err) // invalid regex, or every query field removed
+}
 
-// Or save as JSON
-err = schema.SaveAsJSON(introspectionSchema, "schema.json")
+if err := schema.SaveToFile(schema.ConvertToSDL(trimmed), "schema.graphql"); err != nil {
+	log.Fatal(err)
+}
+// Or save the introspection result as JSON.
+if err := schema.SaveAsJSON(trimmed, "schema.json"); err != nil {
+	log.Fatal(err)
+}
 ```
+
+| Function | Notes |
+| --- | --- |
+| `FetchSchema(url, *FetchOptions)` | `Debug: true` prints a curl command and returns `(nil, nil)`, so check for a nil schema. |
+| `FilterSchema(s, *FilterOptions)` | Returns a new schema; the input is not modified. A nil options pointer returns the input unchanged. |
+| `ConvertToSDL(s)` | SDL as a string, without built-in scalars and directives. |
+| `SaveToFile(sdl, path)`, `SaveAsJSON(s, path)` | Write with mode `0644`, replacing the file. |
+
+The complete program, and generating an SDK in the same run: [Run the generators from Go code](../docs/cli/programmatic.md#fetch-and-filter-from-go).
+
+## Related
+
+- [gqlkit](../gqlkit/README.md): generate a Go or TypeScript SDK from the SDL this tool writes
+- [Recipes: trim a huge vendor schema](../docs/recipes.md#trim-a-huge-vendor-schema-down-to-what-you-use) and [debug a failing fetch](../docs/recipes.md#debug-a-failing-introspection-fetch)
+- [Documentation index](../docs/README.md)
+- [Contributing to this module](./CONTRIBUTING.md)

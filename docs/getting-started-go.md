@@ -1,6 +1,6 @@
 # GQLKit — Go SDK Getting Started Guide
 
-GQLKit generates fully typed GraphQL client SDKs from a GraphQL schema. The generated SDK uses a **builder pattern** with type-safe field selection — only selected fields appear in the return type.
+GQLKit generates fully typed GraphQL client SDKs from a GraphQL schema. The generated SDK uses a **builder pattern** with type-safe field selection: field names are methods, so a typo is a compile error, and only the fields you select are requested from the server. In Go the result is always the full generated struct, so fields you did not select are present with their zero values (see [Types and scalars](go/types-and-scalars.md#step-4--know-what-unselected-means-in-go)).
 
 
 ## Prerequisites
@@ -19,6 +19,7 @@ GQLKit generates fully typed GraphQL client SDKs from a GraphQL schema. The gene
 - [Examples](#examples)
 - [Error Handling](#error-handling)
 - [Client Options](#client-options)
+- [Go guides](#go-guides)
 
 
 ## Step 1: Install the CLI tools
@@ -80,7 +81,7 @@ Create a `config.jsonc` file to map custom GraphQL scalars to Go types:
 }
 ```
 
-Built-in scalars (`String`, `Int`, `Float`, `Boolean`, `ID`) are mapped automatically. You only need to configure custom scalars. Unmapped custom scalars default to `any`.
+The five spec scalars (`String`, `Int`, `Float`, `Boolean`, `ID`) are mapped automatically, and so are `Int64`, `Int32`, `Uint`, `Uint64`, `Uint32`, `Float64`, `Float32`, `Time` (to `time.Time`) and `JSON` (to `json.RawMessage`), so the `Time` and `JSON` entries above are only there to show the syntax. Any other custom scalar without a binding becomes `any`. The full table and the rules for nullable fields are in [Types and scalars](go/types-and-scalars.md).
 
 
 ## Step 4: Generate the SDK
@@ -348,21 +349,29 @@ rawData, err := qr.Ping().ExecuteRaw(ctx)
 
 ### Union types
 
+A union (`search` returns `[SearchResult!]!` where `union SearchResult = Todo | User`) gets a selector with one `On<Type>` method per member. `__typename` is always requested, and each result is a `types.SearchResultValue` whose `Value` is the concrete `*types.Todo` or `*types.User`. Interfaces work the same way. [Selecting fields](go/selecting-fields.md#step-3--query-a-field-that-returns-an-interface) covers both, including what happens when the server sends a member the SDK does not know.
+
 ```go
-builder := qr.Search().Term("a")
-selection := builder.GetSelection()
-
-todoFrag := sdkbuilder.NewFieldSelection()
-todoFrag.AddField("id")
-todoFrag.AddField("text")
-selection.AddChild("... on Todo", todoFrag)
-
-userFrag := sdkbuilder.NewFieldSelection()
-userFrag.AddField("id")
-userFrag.AddField("name")
-selection.AddChild("... on User", userFrag)
-
-results, err := builder.Execute(ctx)
+results, err := qr.Search().
+    Term("a").
+    Select(func(s *fields.SearchResultFields) {
+        s.OnTodo(func(t *fields.TodoFields) { t.ID().Text() }).
+            OnUser(func(u *fields.UserFields) { u.ID().Name().Role() })
+    }).
+    Execute(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+for _, r := range results {
+    switch v := r.Value.(type) {
+    case *types.Todo:
+        fmt.Println("todo", v.ID, v.Text)
+    case *types.User:
+        fmt.Println("user", v.ID, v.Name)
+    default:
+        fmt.Println("unknown member", r.Typename) // r.Raw keeps the JSON
+    }
+}
 ```
 
 ### Batching multiple queries in one request
@@ -413,24 +422,38 @@ fmt.Printf("open=%d completed=%d users=%d\n",
     len(r.Open), len(r.Completed), len(r.Users))
 ```
 
-Generated query (server-side view):
+Generated query, as sent (aliases are sorted, so the order differs from the map literal):
 
 ```graphql
 query Batch($completed_filter: TodoFilter, $open_filter: TodoFilter) {
-  open:      todos(filter: $open_filter)      { id text done }
-  completed: todos(filter: $completed_filter) { id text done }
-  users:                                      { id name role }
+  completed: todos(filter: $completed_filter) {
+    id
+    text
+    done
+  }
+  open: todos(filter: $open_filter) {
+    id
+    text
+    done
+  }
+  users: users {
+    id
+    name
+    role
+  }
 }
 ```
 
 Rules:
 
 - Argument names are namespaced with the alias to avoid collisions (`$open_filter` vs `$completed_filter`).
-- Mixing query and mutation builders in one batch is a compile error — use `batch.RunMutations` for mutations.
+- Mixing query and mutation builders in one batch is a compile error — use `batch.RunMutations` for mutations ([Batching](go/batching.md) has a mutation example and the exact compiler message).
 - Server-returned errors arrive as `*batch.Error` (use `errors.As`); successful aliases are still decoded into `dest` so partial UI can render.
 
 
 ## Error Handling
+
+Errors the server reports in a GraphQL body arrive as `graphqlclient.GraphQLErrors`, whatever the HTTP status (gqlgen answers validation failures with 422). A non-200 status without a GraphQL body (a gateway or proxy error page) arrives as `*graphqlclient.HTTPError`, and network failures as `*url.Error`. [Errors](go/errors.md) shows all of them and how to keep partial data from a batch.
 
 ```go
 import (
@@ -458,6 +481,8 @@ if err != nil {
 
 ## Client Options
 
+Options apply in order and a later one wins for the same header; timeouts belong on the `*http.Client`. [Client](go/client.md) covers per-call deadlines with `context.Context` and how to see the headers that are actually sent.
+
 ```go
 client := graphqlclient.NewClient(
     "https://your-api.example.com/graphql",
@@ -477,3 +502,16 @@ client := graphqlclient.NewClient(
     }),
 )
 ```
+
+
+## Go guides
+
+One page per topic, each with a runnable example in [`example-go-mockapi/cmd`](../example-go-mockapi/cmd) that is tested against mockapi:
+
+- [Client](go/client.md): auth token, headers, custom `http.Client`, timeouts and cancellation
+- [Selecting fields](go/selecting-fields.md): nested objects, self-referencing fields, interfaces and unions
+- [Arguments and inputs](go/arguments-and-inputs.md): setters, input structs, pointers, enums as arguments
+- [Types and scalars](go/types-and-scalars.md): generated types, built-in and custom scalar mappings, what unselected fields hold
+- [Errors](go/errors.md): `GraphQLErrors`, HTTP and transport errors, partial data
+- [Batching](go/batching.md): `RunQueries`, `RunMutations`, alias namespacing, compile-time query/mutation separation
+- [Low-level builder](go/low-level-builder.md): `BuildQuery`, `GetSelection`, `ExecuteRaw`, `Client.Execute`

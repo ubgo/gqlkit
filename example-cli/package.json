@@ -1,0 +1,13 @@
+{
+  "name": "example-cli",
+  "private": true,
+  "description": "Type-checks and runs the TypeScript SDK that generate-ts.sh writes with the gqlkit CLI",
+  "dependencies": {
+    "gqlkit-ts": "file:../gqlkit-ts",
+    "type-fest": "^4.26.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.4.0"
+  }
+}

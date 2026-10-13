@@ -12,12 +12,38 @@ type NodeFields struct {
 }
 
 // NewNodeFields creates a new NodeFields selector
+//
+// Node is abstract: __typename is always selected so the result can
+// be decoded into its concrete type.
 func NewNodeFields(selection *builder.FieldSelection) *NodeFields {
+	selection.AddField("__typename")
 	return &NodeFields{selection: selection}
 }
 
 // ID selects the id field
 func (f *NodeFields) ID() *NodeFields {
 	f.selection.AddField("id")
+	return f
+}
+
+// OnTodo selects fields that only exist when the result is a
+// Todo (an inline fragment: ... on Todo).
+func (f *NodeFields) OnTodo(selector func(*TodoFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewTodoFields(child))
+	}
+	f.selection.AddFragment("Todo", child)
+	return f
+}
+
+// OnUser selects fields that only exist when the result is a
+// User (an inline fragment: ... on User).
+func (f *NodeFields) OnUser(selector func(*UserFields)) *NodeFields {
+	child := builder.NewFieldSelection()
+	if selector != nil {
+		selector(NewUserFields(child))
+	}
+	f.selection.AddFragment("User", child)
 	return f
 }

@@ -2,29 +2,39 @@
 
 > Generates fully typed GraphQL client SDKs for Go and TypeScript from any GraphQL schema. Schema-first rather than query-first: builders are generated once from the schema, then queries are composed in code with dynamic, compile-time-checked field selection — one shared type per GraphQL type, and no codegen re-run when a call site changes which fields it selects.
 
-Four artifacts ship from this repo. The two CLIs are what a user runs; the two runtimes are what the generated code imports.
+Four artifacts ship from this repo. The two CLIs are what a user runs. A generated TypeScript SDK imports the `gqlkit-ts` runtime; a generated Go SDK is self-contained and imports nothing from gqlkit.
 
 | Artifact | Kind | Install |
 |---|---|---|
 | `gqlkit` | CLI — generates a Go or TypeScript SDK from an SDL file | `go install github.com/ubgo/gqlkit/gqlkit/cmd/gqlkit@latest` |
 | `gqlkit-sdl` | CLI — fetches a live endpoint's schema by introspection, writes SDL | `go install github.com/ubgo/gqlkit/gqlkit-sdl@latest` |
-| `github.com/ubgo/gqlkit/gqlkit` | Go module — runtime imported by generated Go SDKs | `go get github.com/ubgo/gqlkit/gqlkit` |
+| `github.com/ubgo/gqlkit/gqlkit` | Go module — the generators as a Go API (`clientgen.New`, `clientgents.New`); needed only to generate from your own Go program, never by a generated SDK | `go get github.com/ubgo/gqlkit/gqlkit` |
 | `gqlkit-ts` | npm package — runtime imported by generated TypeScript SDKs | `npm i gqlkit-ts` |
 
 ## Key facts an assistant gets wrong without reading them
 
 - There is no per-query codegen step. To add a query, call the generated builder; regeneration is only needed when the *schema* changes.
-- Field selection happens at the call site via `.Select(func(f *fields.XFields) { ... })` and narrows the return type. A field that was not selected is a compile error when accessed, in both Go and TypeScript.
+- Field selection happens at the call site via `.Select(func(f *fields.XFields) { ... })` (Go) or `.select((t) => ...)` (TypeScript), and every selected field is checked against the schema at compile time. Only TypeScript narrows the result type, so reading an unselected field is a compile error there. In Go, `Execute` returns the full `types.X` struct and unselected fields are present with zero values.
 - There is exactly one generated type per GraphQL type. Two queries returning `User` both return `types.User` — not two unrelated structs.
-- `gqlkit generate --module` must be the Go module path of the project being generated into, because the generated packages import one another. `go list -m` is the reliable way to supply it.
+- `gqlkit generate --module` (`-m`) must be the import path of the SDK's output directory, not just the module, because the generated packages import one another: `-m "$(go list -m)/sdk"` for `-o ./sdk`.
+- A generated Go SDK needs Go 1.24+ and ships its own `builder`, `graphqlclient` and `batch` packages. Import those from the SDK (`yourmodule/sdk/graphqlclient`); never import `github.com/ubgo/gqlkit/gqlkit/pkg/...` in app code.
 - `--schema` accepts a glob, so a schema split over several files needs no concatenation. A pattern matching nothing exits 1 with `did not match any files`.
 - Both CLIs exit 0 on success and 1 on any failure. There are no per-failure-class exit codes.
+- Unions and interfaces have typed selectors: `On<Type>(...)` in Go (results are `types.<Name>Value` wrappers; type-switch on `.Value`) and `on<Type>(...)` in TypeScript (a union discriminated on `__typename`).
+- Go nullable input fields are `*T` by default, which cannot send `null`. Config `"inputs": { "optional": "opt" }` makes them `inputs.Opt[T]` (`inputs.Some(v)`, `inputs.Null[T]()`). TypeScript nullable outputs are `T | null`.
+- `--prune` (both generators) deletes stale files that carry the gqlkit banner; `--dry-run` previews. Without it, files for removed operations stay behind.
 - Generated code is build output. Never hand-edit anything under an `sdk/` directory; change the schema or the templates and regenerate.
-- Batching is queries only. `batch.RunQueries` sends several queries as one aliased document; never mix a mutation in.
+- Batching covers queries and mutations, one kind per call. Go: `batch.RunQueries` takes only query builders and `batch.RunMutations` only mutation builders, enforced at compile time. TypeScript: `batch(client, { ... })` takes either kind and throws at run time if they are mixed.
 
 ## Docs
 
 - [README](./README.md): what ships, quick starts for Go and TypeScript, approach comparison, FAQ
+- [Docs index](./docs/README.md): twelve-step learning path, "start from your goal" table, every guide and example
+- [Feature reference](./docs/reference/features.md): every user-facing feature with its guide and a runnable example
+- Go guides: [client](./docs/go/client.md), [selecting fields](./docs/go/selecting-fields.md), [arguments and inputs](./docs/go/arguments-and-inputs.md), [types and scalars](./docs/go/types-and-scalars.md), [errors](./docs/go/errors.md), [batching](./docs/go/batching.md), [low-level builder](./docs/go/low-level-builder.md)
+- TypeScript guides: [client](./docs/typescript/client.md), [selecting fields](./docs/typescript/selecting-fields.md), [arguments and inputs](./docs/typescript/arguments-and-inputs.md), [types, scalars and enums](./docs/typescript/types-scalars-enums.md), [errors](./docs/typescript/errors.md), [batching](./docs/typescript/batching.md), [unions](./docs/typescript/unions.md), [low-level API](./docs/typescript/low-level.md)
+- CLI guides: [generate Go](./docs/cli/generate-go.md), [generate TypeScript](./docs/cli/generate-ts.md), [config.jsonc](./docs/cli/config.md), [fetch a schema](./docs/cli/fetch-schema.md), [filter a schema](./docs/cli/filter-schema.md), [generators from Go code](./docs/cli/programmatic.md)
+- Choosing guides: [vs query-first](./docs/choosing/vs-query-first.md), [Go or TypeScript](./docs/choosing/go-vs-typescript.md), [schema source](./docs/choosing/schema-source.md), [CLI or Go program](./docs/choosing/cli-or-go-program.md), [scalar bindings](./docs/choosing/scalar-bindings.md), [client setup by app](./docs/choosing/client-setup.md), [which method to call](./docs/choosing/execute-methods.md), [single vs batch](./docs/choosing/single-vs-batch.md), [when to regenerate](./docs/choosing/when-to-regenerate.md)
 - [CLI reference](./docs/cli-reference.md): every command and flag with real captured output and exit codes
 - [Recipes](./docs/recipes.md): end-to-end workflows — third-party APIs, trimming huge vendor schemas, dual-language generation, keeping the SDK in sync
 - [Getting started — Go](./docs/getting-started-go.md)
@@ -36,10 +46,10 @@ Four artifacts ship from this repo. The two CLIs are what a user runs; the two r
 
 ## Repo layout
 
-- `gqlkit/` — the generator module: CLI in `cmd/gqlkit/`, generators in `pkg/clientgen/` (Go) and `pkg/clientgents/` (TypeScript), templates in `pkg/templater/template/`, runtime in `pkg/builder/`, `pkg/graphqlclient/`, `pkg/batch/`
+- `gqlkit/` — the generator module: CLI in `cmd/gqlkit/`, generators in `pkg/clientgen/` (Go) and `pkg/clientgents/` (TypeScript), templates in `pkg/templater/template/`; `pkg/builder/`, `pkg/graphqlclient/` and `pkg/batch/` are the upstream versions of the packages the templates emit into every Go SDK (kept in sync; app code uses the SDK's own copies)
 - `gqlkit-sdl/` — the introspection fetcher module
 - `gqlkit-ts/` — the TypeScript runtime package
-- `example-go-chat/`, `example-go-mockapi/`, `example-ts/` — worked examples with generated SDKs committed
+- `example-go-mockapi/`, `example-ts/`, `example-cli/` — runnable examples against `mockapi`, one program per guide; `example-go-chat/` generates against a large private schema
 - `mockapi/` — a local GraphQL server the examples generate against
 
 Modules are wired together by the root `go.work` for local development; the published modules carry no `replace` directives, so `go install` works from a clean environment.

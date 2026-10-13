@@ -1,0 +1,6 @@
+// Go bindings for gen/main.go (clientgen): DateTime decodes into time.Time.
+{
+  "bindings": {
+    "DateTime": { "model": "time.Time" }
+  }
+}

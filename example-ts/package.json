@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx cmd/samples/main.ts",
-    "samples": "tsx cmd/samples/main.ts"
+    "samples": "tsx cmd/samples/main.ts",
+    "samples:all": "tsx cmd/samples/run-all.ts"
   },
   "dependencies": {
     "gqlkit-ts": "file:../gqlkit-ts",
