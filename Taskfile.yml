@@ -218,15 +218,17 @@ tasks:
       - "{{.TESTLOCK}} task lint:run"
 
   # Twin of lint that does the work; hidden (no desc) and not internal, for the
-  # same testlock reason as examples:test:run. Modules come from go.work, so a
-  # new module is linted as soon as it is added there. The two max flags turn
+  # same testlock reason as examples:test:run. Modules come from go.work's
+  # `./dir` lines (POSIX classes, because Task's shell reads `\t` in a bracket
+  # as a literal t and used to strip it from "example-go-chat"), so a new
+  # module is linted as soon as it is added there. The two max flags turn
   # off golangci-lint's default truncation (3 same issues, 50 per linter),
   # which otherwise under-reports the real count.
   lint:run:
     cmds:
       - |
         set -e
-        for d in $(sed -n '/^use *(/,/^)/p' go.work | tail -n +2 | sed '$d' | sed 's/^[ \t]*//; s/[ \t]*$//'); do
+        for d in $(sed -n 's/^[[:space:]]*\(\.\/[^[:space:]]*\)[[:space:]]*$/\1/p' go.work); do
           echo ">> golangci-lint $d"
           (cd "$d" && golangci-lint run --max-same-issues=0 --max-issues-per-linter=0 ./...)
         done
@@ -243,7 +245,7 @@ tasks:
     cmds:
       - |
         set -ex
-        for d in $(sed -n '/^use *(/,/^)/p' go.work | tail -n +2 | sed '$d' | sed 's/^[ \t]*//; s/[ \t]*$//'); do
+        for d in $(sed -n 's/^[[:space:]]*\(\.\/[^[:space:]]*\)[[:space:]]*$/\1/p' go.work); do
           echo ">> Tidying '$d'"
           (cd "$d" && go mod tidy)
         done
@@ -253,7 +255,7 @@ tasks:
     cmds:
       - |
         set -ex
-        for d in $(sed -n '/^use *(/,/^)/p' go.work | tail -n +2 | sed '$d' | sed 's/^[ \t]*//; s/[ \t]*$//'); do
+        for d in $(sed -n 's/^[[:space:]]*\(\.\/[^[:space:]]*\)[[:space:]]*$/\1/p' go.work); do
           echo ">> Updating '$d'"
           (cd "$d" && go get -u ./... && go mod tidy)
         done
