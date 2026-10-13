@@ -11,6 +11,8 @@ This monorepo contains two independently versioned CLI tools: `gqlkit` and `gqlk
 
 Both tools can use the same version number (e.g., both at `v0.1.0`) without conflicts because each GitHub Release is tied to its own prefixed tag.
 
+Every Go release pushes two tags on the same commit: the `@` tag (`gqlkit@v0.14.0`) triggers the release workflow, and the slash tag (`gqlkit/v0.14.0`) is the Go module version tag that `go get` and `go install` resolve, since Go requires the module's subdirectory as the tag prefix.
+
 ## How It Works — Step by Step
 
 Taking `gqlkit-sdl@v0.1.0` as an example:
@@ -129,22 +131,26 @@ Each `.goreleaser.yml` configures:
 
 1. Edit `gqlkit/CHANGELOG.md` — add the new version section.
 2. Commit + push the changelog edit.
-3. Tag and push:
+3. Tag and push both tags: `gqlkit@vX.Y.Z` triggers the release workflow, and `gqlkit/vX.Y.Z` is the Go module version tag.
 
 ```bash
 git tag gqlkit@v0.2.0
+git tag gqlkit/v0.2.0
 git push origin gqlkit@v0.2.0
+git push origin gqlkit/v0.2.0
 ```
 
 ### gqlkit-sdl
 
 1. Edit `gqlkit-sdl/CHANGELOG.md` — add the new version section.
 2. Commit + push the changelog edit.
-3. Tag and push:
+3. Tag and push both tags: `gqlkit-sdl@vX.Y.Z` triggers the release workflow, and `gqlkit-sdl/vX.Y.Z` is the Go module version tag.
 
 ```bash
 git tag gqlkit-sdl@v0.1.0
+git tag gqlkit-sdl/v0.1.0
 git push origin gqlkit-sdl@v0.1.0
+git push origin gqlkit-sdl/v0.1.0
 ```
 
 ### gqlkit-ts (npm)

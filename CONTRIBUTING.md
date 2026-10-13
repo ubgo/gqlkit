@@ -204,7 +204,7 @@ The generator has a two-layer test suite in `gqlkit/pkg/clientgen` and `gqlkit/p
 
 ## Changelog & releases
 
-The three shippable artifacts (`gqlkit`, `gqlkit-sdl`, `gqlkit-ts`) version independently and each keep their own `CHANGELOG.md` — there is intentionally no combined top-level changelog. Put user-facing changes under `[Unreleased]` in the affected artifact's changelog, following [Keep a Changelog](https://keepachangelog.com/). Releases are tag-triggered (`gqlkit@vX.Y.Z` / `gqlkit-sdl@vX.Y.Z` build via GoReleaser; `gqlkit-ts` publishes to npm); the changelog edit must land before the tag. Maintainers handle tags.
+The three shippable artifacts (`gqlkit`, `gqlkit-sdl`, `gqlkit-ts`) version independently and each keep their own `CHANGELOG.md` — there is intentionally no combined top-level changelog. Put user-facing changes under `[Unreleased]` in the affected artifact's changelog, following [Keep a Changelog](https://keepachangelog.com/). Releases are tag-triggered (`gqlkit@vX.Y.Z` / `gqlkit-sdl@vX.Y.Z` build via GoReleaser, and a matching `gqlkit/vX.Y.Z` / `gqlkit-sdl/vX.Y.Z` tag on the same commit is the Go module version tag; `gqlkit-ts` publishes to npm); the changelog edit must land before the tag. Maintainers handle tags.
 
 ## Questions
 

@@ -88,8 +88,12 @@ Releases are automated via GitHub Actions. To publish a new version:
 
 ```bash
 git tag gqlkit-sdl@v0.1.0
+git tag gqlkit-sdl/v0.1.0
 git push origin gqlkit-sdl@v0.1.0
+git push origin gqlkit-sdl/v0.1.0
 ```
+
+Push both tags: `gqlkit-sdl@vX.Y.Z` triggers the release workflow, and `gqlkit-sdl/vX.Y.Z` is the Go module version tag that `go get` and `go install` resolve.
 
 This triggers `.github/workflows/release-gqlkit-sdl.yml` which runs GoReleaser to build binaries for all platforms (linux/darwin, amd64/arm64, windows) and creates a GitHub Release.
 
