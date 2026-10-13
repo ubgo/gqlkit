@@ -6,6 +6,12 @@ Tagged as `gqlkit-sdl@vX.Y.Z`. See releases at <https://github.com/ubgo/gqlkit/r
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-10-13
+
+### Breaking
+- Library: `schema.FilterSchema` now returns `(*IntrospectionSchema, error)`; callers must handle the error.
+- `fetch --format` rejects values other than `graphql` and `json`, and an invalid filter regex is an error instead of an exact-name match.
+
 ### Changed
 - `fetch --format` now rejects an unknown value (for example `-f yaml` or `-f JSON`) with an error listing the valid formats, `graphql` and `json`. Previously any other value silently wrote SDL.
 - A non-200 response's body is quoted in the error only up to 512 bytes, with "... (truncated)" appended when there was more, so a gateway's HTML page no longer floods the terminal.
@@ -75,6 +81,7 @@ Tagged as `gqlkit-sdl@vX.Y.Z`. See releases at <https://github.com/ubgo/gqlkit/r
 - `--debug-curl` flag for troubleshooting introspection requests.
 - GoReleaser-driven release workflow tagged as `gqlkit-sdl@vX.Y.Z`.
 
+[0.12.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.12.0
 [0.8.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.8.0
 [0.7.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.7.0
 [0.6.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit-sdl%40v0.6.0
