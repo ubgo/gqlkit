@@ -281,7 +281,7 @@ The `enums.ts` output is on [Arguments and input types](arguments-and-inputs.md#
 - **Decoders run on untrusted input.** Check the value's type and validity and throw a clear error, as `decodeDateTime` does; the runtime wraps the throw with the field path.
 - **The example has no `DateTime` argument or input field,** so `encodeDateTime` is wired but never called by a sample. Encoding runs on scalar arguments and on codec fields of input objects, including nested inputs.
 - **An unmapped custom scalar is `any`.** `Metadata` above has no binding, so `todo.metadata.anything.at.all` compiles. Bind every custom scalar, even to `unknown` (`"Metadata": "unknown"`), to keep type-checking on.
-- **Union bindings in lists are parenthesised.** A binding such as `"ID": "string | number"` used in `[ID!]` renders as `(string | number)[]`. Versions before the fix for [issue #5](https://github.com/ubgo/gqlkit/issues/5) rendered `string | number[]`; regenerate if your SDK has that.
+- **Union bindings in lists are parenthesised.** A binding such as `"ID": "string | number"` used in `[ID!]` renders as `(string | number)[]`. Versions before the fix for old issue #5 rendered `string | number[]`; regenerate if your SDK has that.
 - **Enum names are copied as they are.** `enum Role { ADMIN }` gives `Role.ADMIN`, not `Role.Admin`.
 
 ## Related

@@ -141,7 +141,7 @@ enums: ok
 - **Setting an argument twice keeps the last value.** `.a(1).a(2)` sends `2`. Arguments are declared in the order they were first set.
 - **Argument names that clash with generated methods get an `_` suffix.** An argument named `select`, `execute`, `executeRaw`, `getOpFragment` or `constructor` becomes `select_(v)` and so on, so the builder still compiles. Other names are unchanged.
 - **Server-side default values apply only when the argument is omitted.** `upsertUser(role: Role = USER)` uses `USER` when you never call `.role()`. A setter is always sent once called.
-- **List arguments take arrays of the bound type.** If you bind a scalar to a union type in `config.jsonc` (for example `"ID": "string | number"`), a list of it is `(string | number)[]`. Releases before the fix for [issue #5](https://github.com/ubgo/gqlkit/issues/5) generated `string | number[]`, which accepted the wrong values; regenerate if you see that.
+- **List arguments take arrays of the bound type.** If you bind a scalar to a union type in `config.jsonc` (for example `"ID": "string | number"`), a list of it is `(string | number)[]`. Releases before the fix for old issue #5 generated `string | number[]`, which accepted the wrong values; regenerate if you see that.
 
 ## Related
 
