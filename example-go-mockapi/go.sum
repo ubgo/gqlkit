@@ -12,8 +12,6 @@ github.com/dgryski/trifles v0.0.0-20230903005119-f50d829f2e54 h1:SG7nF6SRlWhcT7c
 github.com/dgryski/trifles v0.0.0-20230903005119-f50d829f2e54/go.mod h1:if7Fbed8SFyPtHLHbg49SI7NAdJiC5WIA09pe59rfAA=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/khanakia/gqlkit/gqlkit v0.11.0 h1:idBNM3HUhiPeD/WgACyA34zJDFsgsCH3IaW09YkguXo=
-github.com/khanakia/gqlkit/gqlkit v0.11.0/go.mod h1:BVhycYUMtARXXXOCFG01+Ar8u6ZRVCBcoDjXu6sqGmw=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/sergi/go-diff v1.3.1 h1:xkr+Oxo4BOQKmkn/B9eMK0g5Kg/983T9DqqPHwYqD+8=
@@ -24,6 +22,8 @@ github.com/tidwall/jsonc v0.3.2 h1:ZTKrmejRlAJYdn0kcaFqRAKlxxFIC21pYq8vLa4p2Wc=
 github.com/tidwall/jsonc v0.3.2/go.mod h1:dw+3CIxqHi+t8eFSpzzMlcVYxKp08UP5CD8/uSFCyJE=
 github.com/ubgo/goutil v0.1.4 h1:1VMMtlIR8ZAzooynGGy9eSCZfldgaXLkDKO+/o4Pkks=
 github.com/ubgo/goutil v0.1.4/go.mod h1:W/PUuFM8DksUznCQM0y8hoh85Zdc3B1qnkn8UBUt80k=
+github.com/ubgo/gqlkit/gqlkit v0.13.0 h1:9vs4TRWt+w+88LsjSs59IEv1FfR4t7PmRvoWgNRPXO8=
+github.com/ubgo/gqlkit/gqlkit v0.13.0/go.mod h1:JOXF5YXxC4KUk0iTkZLIeFFsIswyAkAsP4/TeotW0i4=
 github.com/vektah/gqlparser/v2 v2.5.32 h1:k9QPJd4sEDTL+qB4ncPLflqTJ3MmjB9SrVzJrawpFSc=
 github.com/vektah/gqlparser/v2 v2.5.32/go.mod h1:c1I28gSOVNzlfc4WuDlqU7voQnsqI6OG2amkBAFmgts=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
