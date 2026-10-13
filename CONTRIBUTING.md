@@ -177,6 +177,8 @@ task examples:test   # Go guide programs, TypeScript samples and example-cli, ag
 task docs:check      # links, anchors and formatting of every markdown file
 ```
 
+CI runs on manual dispatch only, so the local gate is `task check`: it runs `task lint` (gofmt + golangci-lint on every Go module), the Go tests exactly as CI runs them (`GOWORK=off`, `-race`), the gqlkit-ts type check and tests, `task docs:check` and `task examples:test`. Run it with mockapi up before opening a pull request.
+
 The generator has a two-layer test suite in `gqlkit/pkg/clientgen` and `gqlkit/pkg/clientgents`: targeted unit tests on the type-mapping functions **plus** end-to-end guards that generate an SDK and then `go build` / `tsc` it. New generator behavior should ship with both where it makes sense. **After any template or generator change, regenerate the examples and confirm they build** (`task example-ts:test`, and rebuild `example-go-mockapi/sdk`) — this catches template regressions the unit tests can't.
 
 ## Ways to contribute
@@ -194,6 +196,7 @@ The generator has a two-layer test suite in `gqlkit/pkg/clientgen` and `gqlkit/p
 ## Pull request checklist
 
 - [ ] The change is scoped and described (link the issue it closes).
+- [ ] `task check` passes with mockapi running (it covers the test, lint, docs and examples items below).
 - [ ] `go test ./...` (each Go module) and `npm test` (gqlkit-ts) pass; `gofmt` and `go vet` are clean.
 - [ ] New behavior has tests where it makes sense.
 - [ ] Generator/template changes were verified by regenerating the examples.

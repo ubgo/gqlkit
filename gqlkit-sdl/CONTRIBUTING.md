@@ -93,9 +93,9 @@ git push origin gqlkit-sdl@v0.1.0
 git push origin gqlkit-sdl/v0.1.0
 ```
 
-Push both tags: `gqlkit-sdl@vX.Y.Z` triggers the release workflow, and `gqlkit-sdl/vX.Y.Z` is the Go module version tag that `go get` and `go install` resolve.
+Push both tags: `gqlkit-sdl@vX.Y.Z` is the release, and `gqlkit-sdl/vX.Y.Z` is the Go module version tag that `go get` and `go install` resolve.
 
-This triggers `.github/workflows/release-gqlkit-sdl.yml` which runs GoReleaser to build binaries for all platforms (linux/darwin, amd64/arm64, windows) and creates a GitHub Release.
+The release workflows run on manual dispatch only, so pushing a tag does not start them: after pushing, run `gh workflow run release-gqlkit-sdl.yml --ref gqlkit-sdl@vX.Y.Z` (or use the Actions tab) to build that tag. `.github/workflows/release-gqlkit-sdl.yml` runs GoReleaser to build binaries for all platforms (linux/darwin, amd64/arm64, windows) and creates a GitHub Release.
 
 ## Dependencies
 

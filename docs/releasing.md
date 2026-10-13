@@ -11,7 +11,7 @@ This monorepo contains two independently versioned CLI tools: `gqlkit` and `gqlk
 
 Both tools can use the same version number (e.g., both at `v0.1.0`) without conflicts because each GitHub Release is tied to its own prefixed tag.
 
-Every Go release pushes two tags on the same commit: the `@` tag (`gqlkit@v0.14.0`) triggers the release workflow, and the slash tag (`gqlkit/v0.14.0`) is the Go module version tag that `go get` and `go install` resolve, since Go requires the module's subdirectory as the tag prefix.
+Every Go release pushes two tags on the same commit: the `@` tag (`gqlkit@v0.14.0`) is the release the workflow builds, and the slash tag (`gqlkit/v0.14.0`) is the Go module version tag that `go get` and `go install` resolve, since Go requires the module's subdirectory as the tag prefix. The release workflows run on manual dispatch only (Actions minutes are a budget), so a pushed tag does not start them by itself; see step 2 below.
 
 ## How It Works — Step by Step
 
@@ -24,9 +24,15 @@ git tag gqlkit-sdl@v0.1.0
 git push origin gqlkit-sdl@v0.1.0
 ```
 
-### 2. GitHub Actions matches the tag pattern
+### 2. You start the release workflow for that tag
 
-The tag `gqlkit-sdl@v0.1.0` matches `gqlkit-sdl@v*` in `.github/workflows/release-gqlkit-sdl.yml`, which triggers the workflow.
+The workflows are manual-only (`workflow_dispatch`), so run the one for the artifact against the tag:
+
+```bash
+gh workflow run release-gqlkit-sdl.yml --ref gqlkit-sdl@v0.1.0
+```
+
+The workflow reads the tag from `GITHUB_REF`, so it must be dispatched on the tag, not on `main`. To make tags start it automatically again, restore the `push: tags:` block shown in the comment at the top of the workflow file.
 
 ### 3. The workflow extracts the version and creates a local semver tag
 
@@ -131,20 +137,21 @@ Each `.goreleaser.yml` configures:
 
 1. Edit `gqlkit/CHANGELOG.md` — add the new version section.
 2. Commit + push the changelog edit.
-3. Tag and push both tags: `gqlkit@vX.Y.Z` triggers the release workflow, and `gqlkit/vX.Y.Z` is the Go module version tag.
+3. Tag and push both tags (`gqlkit@vX.Y.Z` is the release, `gqlkit/vX.Y.Z` is the Go module version tag), then start the release workflow on the `@` tag.
 
 ```bash
 git tag gqlkit@v0.2.0
 git tag gqlkit/v0.2.0
 git push origin gqlkit@v0.2.0
 git push origin gqlkit/v0.2.0
+gh workflow run release-gqlkit.yml --ref gqlkit@v0.2.0
 ```
 
 ### gqlkit-sdl
 
 1. Edit `gqlkit-sdl/CHANGELOG.md` — add the new version section.
 2. Commit + push the changelog edit.
-3. Tag and push both tags: `gqlkit-sdl@vX.Y.Z` triggers the release workflow, and `gqlkit-sdl/vX.Y.Z` is the Go module version tag.
+3. Tag and push both tags (`gqlkit-sdl@vX.Y.Z` is the release, `gqlkit-sdl/vX.Y.Z` is the Go module version tag), then start the release workflow on the `@` tag with `gh workflow run release-gqlkit-sdl.yml --ref gqlkit-sdl@vX.Y.Z`.
 
 ```bash
 git tag gqlkit-sdl@v0.1.0

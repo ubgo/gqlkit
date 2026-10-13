@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "CI is manual-dispatch only; the local gate is task check (needs mockapi up via task mockapi:run / runbay session 'gqlkit mockapi'): lint (gofmt -l + golangci-lint uncapped on every go.work module), GOWORK=off go test -race -cover for gqlkit and gqlkit-sdl, mockapi -race, gqlkit-ts typecheck + npm test, docs:check, examples:test. mockapi:generate is pinned to GOTOOLCHAIN=go1.25.5 because gqlgen breaks under Go 1.27.",
+  "confidence": null,
+  "created_at": "2026-10-13T14:51:29.368030000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "id": "mem_01a135bf42d87079adfd009c1fb6799c",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": null,
+  "superseded_by_id": "mem_01a135bab9a076e9a183ae02436b2162",
+  "trust_score": 0.5,
+  "tx_at": "2026-10-13T14:51:29.368046000Z",
+  "updated_at": "2026-10-13T14:51:29.368030000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

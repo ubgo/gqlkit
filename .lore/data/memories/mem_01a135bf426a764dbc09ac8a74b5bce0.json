@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Releasing gqlkit or gqlkit-sdl: update the CHANGELOG first, then push TWO tags on the release commit: the @ tag (gqlkit@vX.Y.Z / gqlkit-sdl@vX.Y.Z) is the release GoReleaser builds, the slash tag (gqlkit/vX.Y.Z / gqlkit-sdl/vX.Y.Z) is the Go module version tag go get/go install resolve. Since 2026-10-13 every workflow is workflow_dispatch only (Actions minutes are a budget), so pushing a tag does NOT release: run gh workflow run release-gqlkit.yml --ref gqlkit@vX.Y.Z (release-gqlkit-sdl.yml for sdl); it must be dispatched on the tag because it reads GITHUB_REF. Never move a slash tag once pushed (the Go proxy caches it forever); cut a new patch instead. gqlkit-ts: bump package.json, push parity tag gqlkit-ts@vX.Y.Z, npm publish with OTP from 1Password item 'npmjs.com' via a temp --userconfig session plus npm logout, never ~/.npmrc. Re-pin example go.mod files after a release.",
+  "confidence": null,
+  "created_at": "2026-10-13T14:51:29.258406000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "id": "mem_01a135bf426a764dbc09ac8a74b5bce0",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": null,
+  "superseded_by_id": "mem_01a135bab8bc7ee48e6f237894af4487",
+  "trust_score": 0.5,
+  "tx_at": "2026-10-13T14:51:29.258657000Z",
+  "updated_at": "2026-10-13T14:51:29.258407000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

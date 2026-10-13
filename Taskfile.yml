@@ -266,6 +266,25 @@ tasks:
         done
 
   # Docs + quality gates
+  check:
+    desc: The full local gate (CI is manual-only) — lint, Go + TS tests as CI runs them, docs check, then every example against mockapi
+    cmds:
+      - "{{.TESTLOCK}} task check:run"
+
+  # Twin of check that does the work; hidden (no desc) and not internal, for
+  # the same testlock reason as examples:test:run. The Go tests mirror the
+  # test workflow exactly (GOWORK=off, -race), so a green `task check` means
+  # a manual CI run would be green too. examples:test needs mockapi running.
+  check:run:
+    cmds:
+      - task: lint:run
+      - cd gqlkit && GOWORK=off go test ./... -race -cover
+      - cd gqlkit-sdl && GOWORK=off go test ./... -race -cover
+      - cd mockapi && go test ./... -race
+      - cd gqlkit-ts && npm run typecheck && npm test
+      - task: docs:check
+      - task: examples:test:run
+
   docs:check:
     desc: Verify markdown — relative links resolve, anchors match GitHub slugs, no thematic breaks, no hard-wrapped prose
     cmds:
