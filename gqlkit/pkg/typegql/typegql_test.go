@@ -102,19 +102,53 @@ func TestBuildNamedType(t *testing.T) {
 	}
 }
 
-// TestBuildType covers the pointer / slice / named / empty branches of buildType.
-func TestBuildType(t *testing.T) {
-	if _, ok := buildType("*time.Time").(*types.Pointer); !ok {
-		t.Errorf("buildType(*time.Time) not a pointer: %T", buildType("*time.Time"))
+// TestBuiltInTypesReturnsIndependentCopies pins the fix for a process-wide
+// leak: Merge and Build mutate the map they receive, and BuiltInTypes used to
+// hand out the package-level map, so one generator's bindings (DateTime →
+// time.Time) silently applied to every later generator in the process.
+func TestBuiltInTypesReturnsIndependentCopies(t *testing.T) {
+	first := Build(Merge(BuiltInTypes(), TypeMap{"DateTime": {Model: "time.Time"}, "String": {Model: "int"}}))
+	if first["DateTime"].GoType != "time.Time" || first["String"].GoType != "int" {
+		t.Fatalf("first map not merged: %+v", first)
 	}
-	if _, ok := buildType("[]string").(*types.Slice); !ok {
-		t.Errorf("buildType([]string) not a slice: %T", buildType("[]string"))
+
+	second := BuiltInTypes()
+	if _, leaked := second["DateTime"]; leaked {
+		t.Error("DateTime binding from an earlier Merge leaked into BuiltInTypes")
 	}
-	if bt, ok := buildType("string").(*types.Basic); !ok || bt.Name() != "string" {
-		t.Errorf("buildType(string) = %T", buildType("string"))
+	if second["String"].Model != "string" {
+		t.Errorf("String overridden by an earlier Merge: %+v", second["String"])
 	}
-	// Empty must not panic (index-out-of-range guard).
-	if n, ok := buildType("").(*types.Named); !ok || n.Obj().Pkg() != nil {
-		t.Errorf("buildType(\"\") = %v, want named with nil pkg", buildType(""))
+	if second["String"].GoType != "" {
+		t.Errorf("String already Build-resolved by an earlier call: %+v", second["String"])
+	}
+}
+
+// TestBuildPointerAndSliceBindings is the matrix for prefixed bindings:
+// prefixes stay on GoType and never leak into the import path.
+func TestBuildPointerAndSliceBindings(t *testing.T) {
+	cases := []struct {
+		model, goType, goImport string
+	}{
+		{"*math/big.Int", "*big.Int", "math/big"},
+		{"[]*math/big.Int", "[]*big.Int", "math/big"},
+		{"*[]github.com/google/uuid.UUID", "*[]uuid.UUID", "github.com/google/uuid"},
+		{"[]byte", "[]byte", ""},
+		{"*string", "*string", ""},
+		{"[][]int", "[][]int", ""},
+		{"*MyType", "*MyType", ""},
+		{"time.Time", "time.Time", "time"},
+		{" *time.Time ", "*time.Time", "time"},
+	}
+	for _, c := range cases {
+		got := Build(TypeMap{"X": {Model: c.model}})["X"]
+		if got.GoType != c.goType || got.GoImport != c.goImport {
+			t.Errorf("Build(%q) = GoType %q import %q, want %q / %q", c.model, got.GoType, got.GoImport, c.goType, c.goImport)
+		}
+	}
+	for _, m := range []string{"*", "[]", "*[]"} {
+		if got := Build(TypeMap{"X": {Model: m}})["X"]; got.GoType != "any" {
+			t.Errorf("Build(%q) = %+v, want the any fallback", m, got)
+		}
 	}
 }

@@ -111,7 +111,7 @@ func TestIsStructKind(t *testing.T) {
 		{"User", true},         // object
 		{"Filter", true},       // input object
 		{"Role", false},        // enum
-		{"Node", false},        // interface -> not a generated struct field type
+		{"Node", true},         // interface -> its NodeValue wrapper struct
 		{"DateTime", false},    // scalar (bound)
 		{"timestamptz", false}, // scalar (unbound)
 		{"Missing", false},     // unknown

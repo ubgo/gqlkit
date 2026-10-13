@@ -12,7 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "@types/node": "^25.5.0",
-    "gqlkit-ts": "^0.1.0",
+    "gqlkit-ts": "^0.2.0",
     "typescript": "^5.9.3"
   }
 }

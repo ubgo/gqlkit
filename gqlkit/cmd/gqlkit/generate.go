@@ -15,6 +15,8 @@ var (
 	packageName string
 	modulePath  string
 	configPath  string
+	prune       bool
+	dryRun      bool
 )
 
 // generateCmd is the "generate" subcommand that produces a Go client SDK from
@@ -23,7 +25,11 @@ var generateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate Go SDK from GraphQL schema",
 	Long:  `Generates a type-safe Go client SDK from a GraphQL SDL file.`,
+	Args:  noPositionalArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := requireConfigFile(configPath); err != nil {
+			return err
+		}
 		if schemaPath == "" {
 			return fmt.Errorf("--schema flag is required")
 		}
@@ -34,6 +40,8 @@ var generateCmd = &cobra.Command{
 			PackageName: packageName,
 			ModulePath:  modulePath,
 			ConfigPath:  configPath,
+			Prune:       prune,
+			PruneDryRun: dryRun,
 		}
 
 		gen, err := clientgen.New(config)
@@ -55,6 +63,8 @@ func init() {
 	generateCmd.Flags().StringVarP(&packageName, "package", "p", "sdk", "Go package name for generated SDK")
 	generateCmd.Flags().StringVarP(&modulePath, "module", "m", "", "Go module path for generated SDK (e.g., github.com/user/myapi)")
 	generateCmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to config.jsonc file (optional)")
+	generateCmd.Flags().BoolVar(&prune, "prune", false, "Delete files in the output dir that carry the gqlkit generated-code banner but were not produced by this run (files without the banner are never touched)")
+	generateCmd.Flags().BoolVar(&dryRun, "dry-run", false, "With --prune: list the files that would be deleted, delete nothing")
 
 	// Can only fail if the flag above was renamed without updating this
 	// line. Ignoring it would silently make --schema optional and defer the

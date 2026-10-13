@@ -1,7 +1,7 @@
 {{- define "operation_builder" -}}
 {{- /* Operation Builder template for queries/mutations using builder.BaseBuilder and fields selectors */ -}}
 
-// {{ .BuilderName }} builds a {{ .OpType }} for {{ .FieldName }}
+{{ if .Description }}{{ trimSpace (formatDesc .BuilderName .Description) }}{{ else }}// {{ .BuilderName }} builds a {{ .OpType }} for {{ .FieldName }}{{ end }}
 //
 // Embeds *builder.BaseBuilder for shared query-assembly + execution logic,
 // and an op-kind marker (Query / Mutation) so the type only satisfies the

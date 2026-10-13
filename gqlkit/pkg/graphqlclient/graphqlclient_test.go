@@ -350,9 +350,10 @@ func TestExecuteContextCancelled(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestRawQuerySuccess(t *testing.T) {
-	// Note: RawQuery decodes into a struct with a nested "data" field, so the
-	// server's data payload must itself contain a "data" key to be non-nil.
-	srv := newServer(t, http.StatusOK, `{"data":{"data":{"hello":"world"}}}`, nil)
+	// RawQuery returns the data object itself. It used to wrap Execute's
+	// already-unwrapped data in another {data: ...} struct, so a real server
+	// response always yielded "" (this test then required a nested "data").
+	srv := newServer(t, http.StatusOK, `{"data":{"hello":"world"}}`, nil)
 	c := NewClient(srv.URL)
 	raw, err := c.RawQuery(context.Background(), "{ hello }", nil)
 	if err != nil {

@@ -2,6 +2,14 @@
 
 version: "3"
 
+vars:
+  # Heavy test runs take a machine-wide lock when the maintainer's `testlock`
+  # helper is on PATH, so parallel sessions don't overload the CPU. Anywhere
+  # else this is empty and the internal task runs directly, so contributors
+  # without testlock never see "command not found".
+  TESTLOCK:
+    sh: command -v testlock >/dev/null 2>&1 && echo testlock || true
+
 tasks:
   # gqlkit-sdl tasks (schema introspection fetcher)
   gqlkit-sdl:run:
@@ -30,10 +38,12 @@ tasks:
       - go build -o ../bin/mockapi ./server.go
 
   mockapi:generate:
-    desc: Regenerate gqlgen code for mockapi (uses GOWORK=off)
+    # gqlgen v0.17.87 cannot load packages under newer toolchains (x/tools
+    # reports "package ... without types"), so pin the toolchain it runs on.
+    desc: Regenerate gqlgen code for mockapi (GOWORK=off, pinned to Go 1.25.5)
     dir: ./mockapi
     cmds:
-      - GOWORK=off go run github.com/99designs/gqlgen@v0.17.87 generate
+      - GOTOOLCHAIN=go1.25.5 GOWORK=off go run github.com/99designs/gqlgen@v0.17.87 generate
 
   # gqlkit-ts tasks (TypeScript runtime library)
   gqlkit-ts:install:
@@ -67,6 +77,21 @@ tasks:
     cmds:
       - go run ./cmd/generate
 
+  # -count=1 is deliberate: these tests talk to a live mockapi, which Go's
+  # test cache cannot see. They fail (never skip) when mockapi is down;
+  # MOCKAPI_URL overrides the address.
+  example-go-mockapi:test:
+    desc: Run the Go guide programs' tests against mockapi (requires mockapi running)
+    cmds:
+      - "{{.TESTLOCK}} task example-go-mockapi:test:run"
+
+  # No desc (hidden from `task --list`) and not `internal: true`: testlock
+  # re-invokes it as a CLI command, which Task refuses for internal tasks.
+  example-go-mockapi:test:run:
+    dir: ./example-go-mockapi
+    cmds:
+      - go test -count=1 ./...
+
   example-go-mockapi:run:
     desc: Run Go sample queries against mockapi
     dir: ./example-go-mockapi
@@ -79,6 +104,12 @@ tasks:
     dir: ./example-ts
     cmds:
       - npm install
+
+  example-ts:fetch-schema:
+    desc: Fetch schema from mockapi via gqlkit-sdl into example-ts
+    dir: .
+    cmds:
+      - go run ./gqlkit-sdl fetch --url http://localhost:8081/query --output example-ts/cmd/generate/schema.graphql
 
   example-ts:generate:
     desc: Generate TypeScript SDK from schema
@@ -111,6 +142,12 @@ tasks:
     cmds:
       - npm run samples
 
+  example-ts:samples:
+    desc: Run every TypeScript guide sample against mockapi (fails on any error)
+    dir: ./example-ts
+    cmds:
+      - npx tsx cmd/samples/run-all.ts
+
   example-ts:test:
     desc: Full test — build generator, clean generate SDK, type-check
     dir: ./example-ts
@@ -131,6 +168,69 @@ tasks:
       - task: example-ts:typecheck
 
   # Workspace tasks
+  example-cli:install:
+    desc: Install npm packages for the example-cli TypeScript check (needs gqlkit-ts:setup once)
+    dir: ./example-cli
+    cmds:
+      - npm install
+
+  example-cli:test:
+    desc: Run every example-cli script against mockapi and check the outputs (requires mockapi running)
+    cmds:
+      - ./example-cli/test.sh
+
+  # Fails fast with a clear message when mockapi is not answering, so the
+  # live example suites below never report a wall of "connection refused".
+  # -count=1 is deliberate: the test talks to a live mockapi.
+  example-cli:programmatic:test:
+    desc: Run the programmatic generator examples (sdlapi then gen) against mockapi (requires mockapi running)
+    dir: ./example-cli/programmatic
+    cmds:
+      - go test -count=1 ./...
+
+  mockapi:require:
+    desc: Fail unless mockapi answers at http://localhost:8081/query
+    cmds:
+      - |
+        curl -sf -o /dev/null -X POST -H 'content-type: application/json' --data '{"query":"{__typename}"}' http://localhost:8081/query \
+          || { echo "mockapi is not running at http://localhost:8081/query; start it with: task mockapi:run" >&2; exit 1; }
+
+  examples:test:
+    desc: Run every live example suite (Go guide programs, TS samples, example-cli) against mockapi
+    cmds:
+      - "{{.TESTLOCK}} task examples:test:run"
+
+  # Twin of examples:test that does the work (nested testlock calls inside the
+  # steps pass straight through). No desc, so it is hidden from `task --list`,
+  # and not `internal: true`: testlock re-invokes it as a CLI command, which
+  # Task refuses for internal tasks.
+  examples:test:run:
+    cmds:
+      - task: mockapi:require
+      - task: example-go-mockapi:test
+      - cd example-ts && npx tsx cmd/samples/run-all.ts
+      - task: example-cli:test
+      - task: example-cli:programmatic:test
+
+  lint:
+    desc: Run golangci-lint (default rules, uncapped counts) on every Go module in go.work
+    cmds:
+      - "{{.TESTLOCK}} task lint:run"
+
+  # Twin of lint that does the work; hidden (no desc) and not internal, for the
+  # same testlock reason as examples:test:run. Modules come from go.work, so a
+  # new module is linted as soon as it is added there. The two max flags turn
+  # off golangci-lint's default truncation (3 same issues, 50 per linter),
+  # which otherwise under-reports the real count.
+  lint:run:
+    cmds:
+      - |
+        set -e
+        for d in $(sed -n '/^use *(/,/^)/p' go.work | tail -n +2 | sed '$d' | sed 's/^[ \t]*//; s/[ \t]*$//'); do
+          echo ">> golangci-lint $d"
+          (cd "$d" && golangci-lint run --max-same-issues=0 --max-issues-per-linter=0 ./...)
+        done
+
   build:
     desc: Build all modules
     cmds:

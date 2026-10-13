@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "Four-pillar standards pass on gqlkit-ts/src (builder, batch, graphqlclient, index) plus matrix tests: selection shapes, args/variables, batch merging + collisions, op-kind gating, response narrowing, HTTP failures, headers/auth. Small library bugs fixed with pinning tests; others reported.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-13T09:00:31.899162000Z",
+  "created_at": "2026-10-13T08:47:56.116366000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a134726ad475a98b015e73efdd7e7e",
+  "mission_id": null,
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "started_at": "2026-10-13T08:47:58.669334000Z",
+  "status": "done",
+  "tasklist_id": "tlt_01a1346fcb3c7845a13f840f3280f819",
+  "title": "gqlkit-ts runtime standards pass + input-space matrix tests",
+  "updated_at": "2026-10-13T09:00:31.899300000Z"
+}

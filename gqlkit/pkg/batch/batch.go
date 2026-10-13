@@ -52,7 +52,8 @@ type MutationBatchable interface {
 // struct passed to RunQueries.
 type QueryItems map[string]QueryBatchable
 
-// MutationItems is the mutation-side counterpart to QueryItems.
+// MutationItems is the mutation-side counterpart to QueryItems: alias →
+// mutation builder. Mutations in one document run serially in alias order.
 type MutationItems map[string]MutationBatchable
 
 // Error wraps the GraphQL errors returned alongside (possibly populated)
@@ -108,6 +109,47 @@ type clientHolder interface {
 	GetClient() builder.GraphQLClient
 }
 
+// batchOpName is the GraphQL operation name of every merged document
+// (`query Batch(...) { ... }`). Server logs and persisted-query tooling key on
+// it, so it is fixed rather than derived from the aliases.
+const batchOpName = "Batch"
+
+// Sentinel errors for batch inputs that cannot form a valid merged document.
+// They are returned before any request is sent, so the caller sees the real
+// cause instead of a server-side parse or validation error.
+var (
+	// ErrNilBuilder is returned when an Items map holds a nil builder.
+	ErrNilBuilder = errors.New("batch: nil builder")
+	// ErrInvalidAlias is returned when an alias is not a GraphQL Name
+	// (/[_A-Za-z][_0-9A-Za-z]*/). The alias is spliced verbatim into the
+	// document as the response key and as the variable prefix.
+	ErrInvalidAlias = errors.New("batch: alias is not a valid GraphQL name")
+	// ErrVariableCollision is returned when two aliases produce the same
+	// namespaced variable. Namespacing is "<alias>_<arg>", and both parts
+	// may contain "_", so alias "a" with arg "b_c" and alias "a_b" with arg
+	// "c" both yield $a_b_c — merging them would silently send one value
+	// for both. Renaming either alias resolves it.
+	ErrVariableCollision = errors.New("batch: namespaced variable collision")
+)
+
+// isGraphQLName reports whether s matches the GraphQL Name production
+// /[_A-Za-z][_0-9A-Za-z]*/ (ASCII only, by spec).
+func isGraphQLName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '_', c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z':
+		case c >= '0' && c <= '9' && i > 0:
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // RunQueries merges the supplied query builders into a single GraphQL query
 // with aliased root fields, executes it once, and decodes the response into
 // dest (a pointer to a struct with json tags matching the alias keys).
@@ -122,10 +164,11 @@ func RunQueries(ctx context.Context, dest any, items QueryItems) error {
 	for alias, b := range items {
 		srcs[alias] = b
 	}
-	return run(ctx, dest, srcs, "Batch")
+	return run(ctx, dest, srcs, batchOpName)
 }
 
-// RunMutations is the mutation-side counterpart of RunQueries.
+// RunMutations is the mutation-side counterpart of RunQueries. Aliases are
+// sorted, so the server executes the mutations in alias order.
 func RunMutations(ctx context.Context, dest any, items MutationItems) error {
 	if len(items) == 0 {
 		return errors.New("batch.RunMutations: requires at least one builder")
@@ -134,7 +177,7 @@ func RunMutations(ctx context.Context, dest any, items MutationItems) error {
 	for alias, b := range items {
 		srcs[alias] = b
 	}
-	return run(ctx, dest, srcs, "Batch")
+	return run(ctx, dest, srcs, batchOpName)
 }
 
 // run is the shared implementation for RunQueries and RunMutations. The
@@ -158,8 +201,18 @@ func run(ctx context.Context, dest any, items map[string]fragmentSource, opName 
 		fields    []string
 	)
 
+	// varOwner maps each namespaced variable to the alias that produced it,
+	// to detect ErrVariableCollision.
+	varOwner := map[string]string{}
+
 	for i, alias := range aliases {
 		b := items[alias]
+		if b == nil {
+			return fmt.Errorf("%w: alias %q", ErrNilBuilder, alias)
+		}
+		if !isGraphQLName(alias) {
+			return fmt.Errorf("%w: %q", ErrInvalidAlias, alias)
+		}
 		frag := b.GetOpFragment(alias)
 		if i == 0 {
 			opType = frag.OpType
@@ -170,6 +223,10 @@ func run(ctx context.Context, dest any, items map[string]fragmentSource, opName 
 		}
 		varDecls = append(varDecls, frag.VarDecls...)
 		for k, v := range frag.VarValues {
+			if owner, taken := varOwner[k]; taken {
+				return fmt.Errorf("%w: $%s is produced by both alias %q and alias %q — rename one alias", ErrVariableCollision, k, owner, alias)
+			}
+			varOwner[k] = alias
 			varValues[k] = v
 		}
 		fields = append(fields, frag.AliasedField)

@@ -3,6 +3,42 @@
 // the result into GraphQL SDL (Schema Definition Language) text.
 package schema
 
+// Type kinds as reported by the introspection `__TypeKind` enum. The set is
+// closed by the GraphQL spec, so every comparison against FullType.Kind or
+// TypeInfo.Kind goes through these names rather than bare literals.
+const (
+	kindScalar      = "SCALAR"
+	kindObject      = "OBJECT"
+	kindInterface   = "INTERFACE"
+	kindUnion       = "UNION"
+	kindEnum        = "ENUM"
+	kindInputObject = "INPUT_OBJECT"
+	kindList        = "LIST"
+	kindNonNull     = "NON_NULL"
+)
+
+// Default root operation type names. GraphQL infers these when a schema has
+// no explicit `schema { ... }` block, so the converter only writes that block
+// when a root type uses a different name.
+const (
+	defaultQueryTypeName        = "Query"
+	defaultMutationTypeName     = "Mutation"
+	defaultSubscriptionTypeName = "Subscription"
+)
+
+// metaTypePrefix marks introspection meta-types (__Type, __Field, ...). They
+// are part of every schema implicitly and are never written to SDL.
+const metaTypePrefix = "__"
+
+// builtInScalars are the five scalars every GraphQL schema has implicitly.
+// The converter never declares them and the unused-type pruner always keeps
+// them; one list serves both so they cannot drift apart.
+var builtInScalars = []string{"Int", "Float", "String", "Boolean", "ID"}
+
+// builtInDirectives are the spec-defined directives that every server
+// declares; writing them to SDL would redefine them.
+var builtInDirectives = []string{"skip", "include", "deprecated", "specifiedBy"}
+
 // GraphQLError represents a single error object returned in the "errors" array
 // of a GraphQL response.
 type GraphQLError struct {

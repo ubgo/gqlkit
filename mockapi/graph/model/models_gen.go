@@ -52,7 +52,13 @@ type Todo struct {
 	User      *User          `json:"user"`
 	CreatedAt string         `json:"createdAt"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
+	// Self-reference: the todo this one belongs under, or null for a top-level
+	// todo. Seed todo "2" has todo "1" as its parent.
+	Parent *Todo `json:"parent,omitempty"`
 }
+
+func (Todo) IsNode()            {}
+func (this Todo) GetID() string { return this.ID }
 
 func (Todo) IsSearchResult() {}
 
@@ -87,6 +93,9 @@ type User struct {
 	Email *string `json:"email,omitempty"`
 	Role  Role    `json:"role"`
 }
+
+func (User) IsNode()            {}
+func (this User) GetID() string { return this.ID }
 
 func (User) IsSearchResult() {}
 

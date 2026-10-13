@@ -5,10 +5,12 @@
 package main
 
 import (
-	"mockapi/graph"
 	"log"
 	"net/http"
 	"os"
+	"time"
+
+	"mockapi/graph"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
@@ -19,7 +21,55 @@ import (
 )
 
 // defaultPort is the fallback HTTP port when the PORT env var is not set.
+// The example SDKs and Taskfile point at http://localhost:8081/query.
 const defaultPort = "8081"
+
+// Routes served by the mock API. queryPath is what every example SDK targets.
+const (
+	playgroundPath = "/"
+	queryPath      = "/query"
+)
+
+const (
+	// queryCacheSize bounds the LRU of parsed query documents, so identical
+	// queries are parsed once.
+	queryCacheSize = 1000
+	// apqCacheSize bounds the Automatic Persisted Query hash -> query cache.
+	apqCacheSize = 100
+	// readHeaderTimeout stops a client that never finishes its headers from
+	// holding a connection open forever (http.ListenAndServe has no timeout).
+	readHeaderTimeout = 10 * time.Second
+)
+
+// newHandler builds the full HTTP surface — playground at playgroundPath and
+// the GraphQL endpoint at queryPath — around the given resolver. It is split
+// from main so tests drive exactly what the server serves.
+func newHandler(resolver *graph.Resolver) http.Handler {
+	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
+
+	// Register supported HTTP transports: OPTIONS (CORS preflight), GET, and POST.
+	srv.AddTransport(transport.Options{})
+	srv.AddTransport(transport.GET{})
+	srv.AddTransport(transport.POST{})
+
+	srv.SetQueryCache(lru.New[*ast.QueryDocument](queryCacheSize))
+
+	// Enable schema introspection so clients (and gqlkit-sdl) can discover the API.
+	srv.Use(extension.Introspection{})
+	// Enable Automatic Persisted Queries (APQ), allowing clients to send a
+	// query hash instead of the full query string.
+	srv.Use(extension.AutomaticPersistedQuery{
+		Cache: lru.New[string](apqCacheSize),
+	})
+
+	mux := http.NewServeMux()
+	mux.Handle(playgroundPath, playground.Handler("GraphQL playground", queryPath))
+	// Stash the request headers in the context for the requestHeader query.
+	mux.Handle(queryPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv.ServeHTTP(w, r.WithContext(graph.WithRequestHeaders(r.Context(), r.Header)))
+	}))
+	return mux
+}
 
 func main() {
 	// Allow port override via environment variable for flexible deployment.
@@ -28,32 +78,11 @@ func main() {
 		port = defaultPort
 	}
 
-	// Initialize the gqlgen handler with the generated schema and resolver.
-	// The Resolver struct holds all in-memory state (todos, users) and seeds
-	// data lazily on first query.
-	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
-
-	// Register supported HTTP transports: OPTIONS (CORS preflight), GET, and POST.
-	srv.AddTransport(transport.Options{})
-	srv.AddTransport(transport.GET{})
-	srv.AddTransport(transport.POST{})
-
-	// Cache up to 1000 parsed query documents to avoid re-parsing identical queries.
-	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
-
-	// Enable schema introspection so clients can discover the API.
-	srv.Use(extension.Introspection{})
-	// Enable Automatic Persisted Queries (APQ) with a 100-entry hash cache,
-	// allowing clients to send a query hash instead of the full query string.
-	srv.Use(extension.AutomaticPersistedQuery{
-		Cache: lru.New[string](100),
-	})
-
-	// Serve the interactive GraphQL playground UI at the root path.
-	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	// Serve the GraphQL query endpoint.
-	http.Handle("/query", srv)
-
-	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           newHandler(&graph.Resolver{}),
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
+	log.Printf("connect to http://localhost:%s%s for GraphQL playground", port, playgroundPath)
+	log.Fatal(server.ListenAndServe())
 }

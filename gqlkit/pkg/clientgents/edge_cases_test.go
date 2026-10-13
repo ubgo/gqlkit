@@ -110,7 +110,7 @@ type Query {
 
 	// The root factory must not reference an empty-named Builder for "_".
 	root := read(t, outDir, "queries/root.ts")
-	if strings.Contains(root, "export class Builder {") || strings.Contains(root, `from "./_"`) || strings.Contains(root, "_(): Builder") {
+	if strings.Contains(root, "export class Builder {") || strings.Contains(root, `from "./_.js"`) || strings.Contains(root, "_(): Builder") {
 		t.Errorf("queries/root.ts still references the placeholder builder:\n%s", root)
 	}
 
@@ -120,7 +120,7 @@ type Query {
 	}
 }
 
-// assertNoDanglingFieldImports parses `import { X } from "./y"` lines in every
+// assertNoDanglingFieldImports parses `import { X } from "./y.js"` lines in every
 // fields/*.ts file and asserts the referenced sibling file exists. A dangling
 // import is exactly the "references a type it never generated" failure shape.
 func assertNoDanglingFieldImports(t *testing.T, dir string) {
@@ -152,8 +152,8 @@ func assertNoDanglingFieldImports(t *testing.T, dir string) {
 			if end == -1 {
 				continue
 			}
-			rel := rest[:end] // e.g. "./post"
-			target := filepath.Join(fieldsDir, strings.TrimPrefix(rel, "./")+".ts")
+			rel := rest[:end] // e.g. "./post.js", which resolves to post.ts
+			target := filepath.Join(fieldsDir, strings.TrimSuffix(strings.TrimPrefix(rel, "./"), jsExt)+".ts")
 			if _, err := os.Stat(target); err != nil {
 				t.Errorf("%s imports %q but %s does not exist (dangling import)", e.Name(), rel, target)
 			}

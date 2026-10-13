@@ -9,48 +9,55 @@ import (
 	"context"
 	"fmt"
 	"mockapi/graph/model"
+	"slices"
+	"strings"
 	"time"
+
+	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
-// CreateTodo creates a new todo in the in-memory store.
-// It assigns a sequential string ID, links the specified user (if found),
-// and defaults Done to false. Returns the newly created todo.
+// CreateTodo creates a new todo in the in-memory store, owned by
+// input.userId, with the next never-used ID and Done false. An unknown userId
+// is a GraphQL error (extensions.code NOT_FOUND) and nothing is stored:
+// Todo.user is non-null, so an ownerless todo would make every later query
+// selecting `todos { user }` fail.
 func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	// Ensure seed data exists before any mutation.
-	if r.users == nil || len(r.users) == 0 {
-		r.seedData()
-	}
+	defer r.lock()()
 
-	// Generate a simple sequential ID based on current slice length.
-	id := fmt.Sprintf("%d", len(r.todos)+1)
-	todo := &model.Todo{
-		ID:        id,
-		Text:      input.Text,
-		Done:      false,
-		Priority:  input.Priority,
-		Tags:      input.Tags,
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-	}
-
-	// Look up the user by ID and attach to the todo if found.
+	var owner *model.User
 	for _, u := range r.users {
 		if u.ID == input.UserID {
-			todo.User = u
+			owner = u
 			break
 		}
 	}
+	if owner == nil {
+		return nil, &gqlerror.Error{
+			Message:    fmt.Sprintf("user %q not found", input.UserID),
+			Extensions: map[string]any{errorCodeExtension: errorCodeNotFound},
+		}
+	}
+
+	todo := &model.Todo{
+		ID:        r.newTodoID(),
+		Text:      input.Text,
+		Done:      false,
+		Priority:  input.Priority,
+		Tags:      slices.Clone(input.Tags),
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		User:      owner,
+	}
 
 	r.todos = append(r.todos, todo)
-	return todo, nil
+	return cloneTodo(todo), nil
 }
 
 // UpdateTodo performs a partial update on an existing todo identified by ID.
-// Only non-nil fields in the input are applied (patch semantics).
+// Only fields present in the input are applied (patch semantics); an explicit
+// empty `tags: []` clears the tags, an omitted `tags` leaves them alone.
 // Returns nil if the todo is not found (no error).
 func (r *mutationResolver) UpdateTodo(ctx context.Context, id string, input model.UpdateTodoInput) (*model.Todo, error) {
-	if r.todos == nil {
-		r.seedData()
-	}
+	defer r.lock()()
 	for _, t := range r.todos {
 		if t.ID == id {
 			// Apply only the fields that were explicitly provided.
@@ -63,10 +70,10 @@ func (r *mutationResolver) UpdateTodo(ctx context.Context, id string, input mode
 			if input.Priority != nil {
 				t.Priority = input.Priority
 			}
-			if input.Tags != nil && len(input.Tags) > 0 {
-				t.Tags = input.Tags
+			if input.Tags != nil {
+				t.Tags = slices.Clone(input.Tags)
 			}
-			return t, nil
+			return cloneTodo(t), nil
 		}
 	}
 	return nil, nil
@@ -75,13 +82,10 @@ func (r *mutationResolver) UpdateTodo(ctx context.Context, id string, input mode
 // DeleteTodo removes a todo by ID from the in-memory store.
 // Returns true if a todo was found and deleted, false otherwise.
 func (r *mutationResolver) DeleteTodo(ctx context.Context, id string) (bool, error) {
-	if r.todos == nil {
-		r.seedData()
-	}
+	defer r.lock()()
 	for i, t := range r.todos {
 		if t.ID == id {
-			// Remove by re-slicing (order-preserving delete).
-			r.todos = append(r.todos[:i], r.todos[i+1:]...)
+			r.todos = slices.Delete(r.todos, i, i+1)
 			return true, nil
 		}
 	}
@@ -90,11 +94,9 @@ func (r *mutationResolver) DeleteTodo(ctx context.Context, id string) (bool, err
 
 // UpsertUser creates or updates a user. If an ID is provided and matches an
 // existing user, that user's fields are updated in place. Otherwise, a new
-// user is created with a sequential ID and defaults to the User role.
+// user is created with the next never-used ID and defaults to the User role.
 func (r *mutationResolver) UpsertUser(ctx context.Context, id *string, name string, email *string, role *model.Role) (*model.User, error) {
-	if r.users == nil {
-		r.seedData()
-	}
+	defer r.lock()()
 
 	// Update path: find existing user by ID and overwrite fields.
 	if id != nil {
@@ -105,33 +107,30 @@ func (r *mutationResolver) UpsertUser(ctx context.Context, id *string, name stri
 				if role != nil {
 					u.Role = *role
 				}
-				return u, nil
+				return cloneUser(u), nil
 			}
 		}
 	}
 
 	// Create path: no matching ID found (or no ID provided).
-	newID := fmt.Sprintf("%d", len(r.users)+1)
 	newRole := model.RoleUser
 	if role != nil {
 		newRole = *role
 	}
 	u := &model.User{
-		ID:    newID,
+		ID:    r.newUserID(),
 		Name:  name,
 		Email: email,
 		Role:  newRole,
 	}
 	r.users = append(r.users, u)
-	return u, nil
+	return cloneUser(u), nil
 }
 
 // CompleteAllTodos marks every incomplete todo as done.
 // Returns the count of todos that were actually changed.
 func (r *mutationResolver) CompleteAllTodos(ctx context.Context) (int32, error) {
-	if r.todos == nil {
-		r.seedData()
-	}
+	defer r.lock()()
 	var count int32
 	for _, t := range r.todos {
 		if !t.Done {
@@ -144,103 +143,63 @@ func (r *mutationResolver) CompleteAllTodos(ctx context.Context) (int32, error) 
 
 // Ping is a simple health-check query that returns a static response.
 func (r *queryResolver) Ping(ctx context.Context) (string, error) {
-	return "pong from gqlgenapi", nil
+	return pingResponse, nil
 }
 
 // Todo fetches a single todo by its ID. Returns nil (not an error) if not found.
 func (r *queryResolver) Todo(ctx context.Context, id string) (*model.Todo, error) {
-	if r.todos == nil {
-		r.seedData()
-	}
+	defer r.lock()()
 	for _, t := range r.todos {
 		if t.ID == id {
-			return t, nil
+			return cloneTodo(t), nil
 		}
 	}
 	return nil, nil
 }
 
-// Todos returns a filtered, paginated list of todos.
-// Filtering is applied first via matchesTodoFilter, then offset-based pagination
-// is applied using the optional PaginationInput (offset + limit).
+// Todos returns a filtered, paginated list of todos: filter first via
+// matchesTodoFilter, then the offset/limit window from paginate.
 func (r *queryResolver) Todos(ctx context.Context, filter *model.TodoFilter, pagination *model.PaginationInput) ([]*model.Todo, error) {
-	if r.todos == nil {
-		r.seedData()
-	}
-	// Phase 1: collect all todos matching the filter criteria.
-	var out []*model.Todo
-	for _, t := range r.todos {
-		if matchesTodoFilter(t, filter) {
-			out = append(out, t)
-		}
-	}
-	// Phase 2: apply offset-based pagination.
-	// Default to returning all results if no pagination is specified.
-	start := 0
-	limit := len(out)
-	if pagination != nil {
-		if pagination.Offset > 0 && int(pagination.Offset) < len(out) {
-			start = int(pagination.Offset)
-		}
-		if pagination.Limit > 0 && int(pagination.Limit) < limit {
-			limit = int(pagination.Limit)
-		}
-	}
-	if start > len(out) {
-		return []*model.Todo{}, nil
-	}
-	end := start + limit
-	if end > len(out) {
-		end = len(out)
-	}
-	return out[start:end], nil
+	defer r.lock()()
+	page, _, _ := r.todoPageLocked(filter, pagination)
+	return page, nil
 }
 
-// TodosConnection wraps the Todos query result in a Relay-style connection type
-// with edges, cursors, and pageInfo. Cursors are synthetic ("cursor-<id>").
-// Note: hasNextPage/hasPreviousPage are always false in this mock implementation.
+// TodosConnection wraps the Todos result in a Relay-style connection with
+// synthetic cursors ("cursor-<id>"). totalCount is the number of todos that
+// match the filter before pagination, and hasNextPage / hasPreviousPage say
+// whether the offset window cut anything off on either side.
 func (r *queryResolver) TodosConnection(ctx context.Context, filter *model.TodoFilter, pagination *model.PaginationInput) (*model.TodoConnection, error) {
-	// Reuse the Todos resolver for filtering and pagination logic.
-	items, err := r.Todos(ctx, filter, pagination)
-	if err != nil {
-		return nil, err
-	}
-	// Wrap each todo in an edge with a synthetic cursor string.
+	defer r.lock()()
+	items, start, total := r.todoPageLocked(filter, pagination)
+
 	edges := make([]*model.TodoEdge, len(items))
 	for i, t := range items {
-		cursor := fmt.Sprintf("cursor-%s", t.ID)
-		edges[i] = &model.TodoEdge{
-			Cursor: cursor,
-			Node:   t,
-		}
+		edges[i] = &model.TodoEdge{Cursor: todoCursorPrefix + t.ID, Node: t}
 	}
-	// Build pageInfo with start/end cursors from the edge boundaries.
 	var startCursor, endCursor *string
 	if len(edges) > 0 {
 		startCursor = &edges[0].Cursor
 		endCursor = &edges[len(edges)-1].Cursor
 	}
-	conn := &model.TodoConnection{
+	return &model.TodoConnection{
 		Edges: edges,
 		PageInfo: &model.PageInfo{
-			HasNextPage:     false,
-			HasPreviousPage: false,
+			HasNextPage:     start+len(items) < total,
+			HasPreviousPage: start > 0,
 			StartCursor:     startCursor,
 			EndCursor:       endCursor,
 		},
-		TotalCount: int32(len(items)),
-	}
-	return conn, nil
+		TotalCount: int32(total),
+	}, nil
 }
 
 // User fetches a single user by ID. Returns nil (not an error) if not found.
 func (r *queryResolver) User(ctx context.Context, id string) (*model.User, error) {
-	if r.users == nil {
-		r.seedData()
-	}
+	defer r.lock()()
 	for _, u := range r.users {
 		if u.ID == id {
-			return u, nil
+			return cloneUser(u), nil
 		}
 	}
 	return nil, nil
@@ -248,30 +207,28 @@ func (r *queryResolver) User(ctx context.Context, id string) (*model.User, error
 
 // Users returns all users in the in-memory store.
 func (r *queryResolver) Users(ctx context.Context) ([]*model.User, error) {
-	if r.users == nil {
-		r.seedData()
+	defer r.lock()()
+	out := make([]*model.User, len(r.users))
+	for i, u := range r.users {
+		out[i] = cloneUser(u)
 	}
-	return r.users, nil
+	return out, nil
 }
 
 // Search performs a case-insensitive substring search across both todos (by text)
-// and users (by name). Returns a union type (SearchResult) containing mixed results.
-// An empty term matches all items.
+// and users (by name). Returns a union type (SearchResult) containing mixed
+// results, todos first. An empty term matches all items.
 func (r *queryResolver) Search(ctx context.Context, term string) ([]model.SearchResult, error) {
-	if r.users == nil || r.todos == nil {
-		r.seedData()
-	}
-	var results []model.SearchResult
-	// Search todos by text content.
+	defer r.lock()()
+	results := []model.SearchResult{}
 	for _, t := range r.todos {
-		if term == "" || containsIgnoreCase(t.Text, term) {
-			results = append(results, t)
+		if containsIgnoreCase(t.Text, term) {
+			results = append(results, cloneTodo(t))
 		}
 	}
-	// Search users by name.
 	for _, u := range r.users {
-		if term == "" || containsIgnoreCase(u.Name, term) {
-			results = append(results, u)
+		if containsIgnoreCase(u.Name, term) {
+			results = append(results, cloneUser(u))
 		}
 	}
 	return results, nil
@@ -283,13 +240,15 @@ func (r *queryResolver) Echo(ctx context.Context, message string) (string, error
 	return message, nil
 }
 
-// Sum returns the arithmetic sum of two integers.
+// Sum returns the arithmetic sum of two integers. GraphQL Int is 32-bit and
+// gqlgen does not check overflow, so the result wraps like Go int32 addition.
 // Useful for testing scalar argument handling in GraphQL clients.
 func (r *queryResolver) Sum(ctx context.Context, a int32, b int32) (int32, error) {
 	return a + b, nil
 }
 
-// ServerInfo returns arbitrary JSON with server runtime info.
+// ServerInfo returns arbitrary JSON with server runtime info. The map type is
+// fixed by gqlgen's mapping of the schema's `JSON` scalar.
 func (r *queryResolver) ServerInfo(ctx context.Context) (map[string]any, error) {
 	return map[string]any{
 		"version":   "1.0.0",
@@ -297,6 +256,64 @@ func (r *queryResolver) ServerInfo(ctx context.Context) (map[string]any, error) 
 		"goVersion": "go1.23",
 		"features":  []string{"todos", "users", "search"},
 	}, nil
+}
+
+// Fail always resolves to null with a GraphQL error whose extensions.code is
+// code, so clients can demonstrate error handling and partial data (gqlgen
+// fills in the error's path). Nil arguments fall back to defaultFailMessage /
+// defaultFailCode.
+func (r *queryResolver) Fail(ctx context.Context, message *string, code *string) (*string, error) {
+	msg, c := defaultFailMessage, defaultFailCode
+	if message != nil {
+		msg = *message
+	}
+	if code != nil {
+		c = *code
+	}
+	return nil, &gqlerror.Error{
+		Message: msg,
+		// gqlerror's Extensions is map[string]any; this is the framework
+		// boundary for the free-form extensions object.
+		Extensions: map[string]any{errorCodeExtension: c},
+	}
+}
+
+// RequestHeader echoes the named request header (case-insensitive, first
+// value), or null when the request did not send it.
+func (r *queryResolver) RequestHeader(ctx context.Context, name string) (*string, error) {
+	values := requestHeadersFrom(ctx).Values(name)
+	if len(values) == 0 {
+		return nil, nil
+	}
+	return &values[0], nil
+}
+
+// Node resolves a typed ID "<Type>:<id>" (see nodeTypeTodo / nodeTypeUser) to
+// a Todo or User. Unknown types, malformed IDs and missing records are null,
+// not errors, matching the other single-item lookups.
+func (r *queryResolver) Node(ctx context.Context, id string) (model.Node, error) {
+	typeName, rawID, ok := strings.Cut(id, nodeIDSeparator)
+	if !ok {
+		return nil, nil
+	}
+	defer r.lock()()
+	switch typeName {
+	case nodeTypeTodo:
+		for _, t := range r.todos {
+			if t.ID == rawID {
+				return cloneTodo(t), nil
+			}
+		}
+	case nodeTypeUser:
+		for _, u := range r.users {
+			if u.ID == rawID {
+				return cloneUser(u), nil
+			}
+		}
+	}
+	// An explicit nil interface: returning a nil *model.Todo would be a
+	// non-nil Node and gqlgen would try to resolve its fields.
+	return nil, nil
 }
 
 // Mutation returns MutationResolver implementation.

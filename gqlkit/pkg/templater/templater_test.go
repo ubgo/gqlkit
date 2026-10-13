@@ -402,3 +402,13 @@ func TestTemplateDirNotNil(t *testing.T) {
 		t.Fatal("expected embedded template files, found none")
 	}
 }
+
+// TestPascalCaseExportMatchesHelper pins that the exported form generator
+// code uses computes exactly what the template helper renders.
+func TestPascalCaseExportMatchesHelper(t *testing.T) {
+	for _, in := range []string{"IN_PROGRESS", "inProgress", "user_id", "_", ""} {
+		if PascalCase(in) != pascalCase(in) {
+			t.Errorf("PascalCase(%q) = %q, helper %q", in, PascalCase(in), pascalCase(in))
+		}
+	}
+}

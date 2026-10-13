@@ -9,4 +9,7 @@ export type { {{ .ImportType }} as {{ .Name }} } from "{{ .Import }}";
 {{- else }}
 export type {{ .Name }} = {{ .TSType }};
 {{- end }}
+{{- if .CodecImport }}
+export { {{ if .Decode }}{{ .Decode }} as {{ .DecoderName }}{{ end }}{{ if and .Decode .Encode }}, {{ end }}{{ if .Encode }}{{ .Encode }} as {{ .EncoderName }}{{ end }} } from "{{ .CodecImport }}";
+{{- end }}
 {{- end }}

@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "Owner decision. Banner rule + flags from std-go-codegen.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-13T10:09:07.118563000Z",
+  "created_at": "2026-10-13T10:05:23.075599000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a134b95303792bb6c1c800872f38df",
+  "mission_id": null,
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "started_at": null,
+  "status": "done",
+  "tasklist_id": "tlt_01a1346fcb3c7845a13f840f3280f819",
+  "title": "generate-ts --prune / --dry-run (Go parity)",
+  "updated_at": "2026-10-13T10:09:07.118682000Z"
+}

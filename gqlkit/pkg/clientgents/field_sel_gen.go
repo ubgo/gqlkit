@@ -9,15 +9,26 @@ import (
 )
 
 // TSFieldSelectorData is the template data for generating a single TypeScript
-// field selector class. Each GraphQL object type gets its own selector class
-// that extends FieldSelection with typed methods for each field.
+// field selector class. Each GraphQL composite type gets its own selector
+// class wrapping a FieldSelection, with typed methods for each field and, for
+// interfaces and unions, one on<Type>() inline-fragment method per possible type.
 type TSFieldSelectorData struct {
-	TypeName      string
-	SelectorName  string
+	TypeName     string
+	SelectorName string
+	// IsAbstract marks an interface or union selector: its constructor adds
+	// __typename and it carries Variants.
+	IsAbstract bool
+	// DefaultResult is the class's default T: "{}" for an object; for an
+	// abstract type the discriminated { __typename } union (variantsDefault).
+	DefaultResult string
+	Variants      []TSFieldVariant
 	Fields        []TSFieldSelField
 	Imports       []TSFieldImport
 	EnumImports   []string
 	ScalarImports []string
+	// DecoderImports are the generated decoders (values) this selector passes
+	// to addField; empty without a codec.
+	DecoderImports []string
 }
 
 // TSFieldSelField describes one field on a TypeScript field selector class.
@@ -25,26 +36,33 @@ type TSFieldSelectorData struct {
 // callbacks with the appropriate generic type parameter.
 type TSFieldSelField struct {
 	FieldName      string // original GraphQL field name (camelCase)
-	MethodName     string // camelCase method name
+	MethodName     string // field name, suffixed only if it clashes with a selector member (see memberNamer)
 	IsObject       bool
 	NestedSelector string // e.g., "UserFields"
-	TSType         string // TypeScript type for scalar fields (e.g., "string", "number", "string[]")
-	IsNullable     bool   // whether the field is nullable (optional property)
-	IsList         bool   // for object fields: wraps U in U[]
+	// ResultType is the property type added to the selection result. A
+	// selected field is always present, so it is never optional; nullable
+	// positions admit null instead. Leaves carry their TS type ("string |
+	// null", "(number | null)[]"); object fields carry the same structure
+	// around the callback's generic ("U[] | null").
+	ResultType string
+	// DecodeArgs is appended to the addField call for a leaf whose scalar has
+	// a decoder: ", decodeDateTime, 1" (decoder, list depth). Empty otherwise.
+	DecodeArgs string
+}
+
+// TSFieldVariant is one on<Type>() method of an abstract selector: an inline
+// fragment on a possible type, narrowing the result's matching member.
+type TSFieldVariant struct {
+	TypeName     string // possible type, e.g. "Todo" (also its __typename)
+	MethodName   string // e.g. "onTodo"; suffixed if it clashes (memberNamer)
+	SelectorName string // e.g. "TodoFields"
 }
 
 // TSFieldImport describes one import of another field selector class needed
 // for nested object selection methods.
 type TSFieldImport struct {
 	ClassName string // e.g., "UserFields"
-	FilePath  string // e.g., "./user"
-}
-
-// TSTypeImport describes a type-only import (e.g. enum or scalar types)
-// needed for field selector files.
-type TSTypeImport struct {
-	Names []string // e.g., ["Role", "Status"]
-	Path  string   // e.g., "../enums"
+	FilePath  string // e.g., "./user.js" (see siblingImport)
 }
 
 // TSFieldIndexEntry holds one entry for the fields/index.ts barrel file that
@@ -57,31 +75,45 @@ type TSFieldIndexEntry struct {
 // buildFieldSelectorData builds template data for one object type's field selector
 func (g *Generator) buildFieldSelectorData(def *ast.Definition) TSFieldSelectorData {
 	data := TSFieldSelectorData{
-		TypeName:     def.Name,
-		SelectorName: def.Name + "Fields",
-		Fields:       make([]TSFieldSelField, 0, len(def.Fields)),
+		TypeName:      def.Name,
+		SelectorName:  def.Name + selectorSuffix,
+		IsAbstract:    isAbstractKind(def.Kind),
+		DefaultResult: "{}",
+		Fields:        make([]TSFieldSelField, 0, len(def.Fields)),
 	}
 
 	importMap := make(map[string]TSFieldImport) // keyed by NestedSelector
+	methods := newMemberNamer(selectorMembers)
+	decoders := make(map[string]bool)
 
-	for _, field := range def.Fields {
-		if skipGenField(field.Name) {
-			continue
+	// Variant methods are generator API, so they claim their names before
+	// schema fields do: an interface field literally called onTodo is the
+	// one that gets suffixed.
+	if data.IsAbstract {
+		data.DefaultResult = g.variantsDefault(def)
+		for _, name := range g.possibleTypeNames(def) {
+			v := TSFieldVariant{
+				TypeName:     name,
+				MethodName:   methods.name(variantMethodPrefix + upperFirst(name)),
+				SelectorName: name + selectorSuffix,
+			}
+			data.Variants = append(data.Variants, v)
+			importMap[v.SelectorName] = TSFieldImport{ClassName: v.SelectorName, FilePath: siblingImport(toKebabCase(name))}
 		}
+	}
+
+	for _, field := range emittedFields(def) {
 		baseName := getBaseTypeName(field.Type)
-		isObj := isObjectType(g.schema, field.Type)
-		isNullable := !field.Type.NonNull
-		isList := field.Type.Elem != nil
+		isObj := isCompositeType(g.schema, field.Type)
 
 		f := TSFieldSelField{
 			FieldName:  field.Name,
-			MethodName: field.Name,
+			MethodName: methods.name(field.Name),
 			IsObject:   isObj,
-			IsNullable: isNullable,
-			IsList:     isList,
 		}
 		if isObj {
-			f.NestedSelector = baseName + "Fields"
+			f.ResultType = outputTSType(field.Type, selectorGeneric, g.outputNullSuffix(def.Name, field.Name))
+			f.NestedSelector = baseName + selectorSuffix
 			// Skip the import only when the field type *is* the enclosing
 			// type (e.g. Item.parent: Item) — TS classes self-reference
 			// fine, but `import { ItemFields } from "./item"` inside
@@ -90,14 +122,18 @@ func (g *Generator) buildFieldSelectorData(def *ast.Definition) TSFieldSelectorD
 			// field treatment for self-refs, generating a scalar leaf
 			// without a selector callback; that's the bug fixed in 871c081.
 			if baseName != def.Name {
-				filePath := "./" + toKebabCase(baseName)
+				filePath := siblingImport(toKebabCase(baseName))
 				importMap[f.NestedSelector] = TSFieldImport{
 					ClassName: f.NestedSelector,
 					FilePath:  filePath,
 				}
 			}
 		} else {
-			f.TSType = g.fieldTSType(field.Type)
+			f.ResultType = g.fieldTypeFor(def, field)
+			if dec := g.decoderName(baseName); dec != "" {
+				f.DecodeArgs = fmt.Sprintf(", %s, %d", dec, listDepth(field.Type))
+				decoders[dec] = true
+			}
 		}
 		data.Fields = append(data.Fields, f)
 	}
@@ -114,6 +150,7 @@ func (g *Generator) buildFieldSelectorData(def *ast.Definition) TSFieldSelectorD
 	enumImports, scalarImports := g.collectFieldSelectorTypeImports(def)
 	data.EnumImports = enumImports
 	data.ScalarImports = scalarImports
+	data.DecoderImports = sortedKeys(decoders)
 
 	return data
 }
@@ -121,15 +158,10 @@ func (g *Generator) buildFieldSelectorData(def *ast.Definition) TSFieldSelectorD
 // generateFieldSelectionFiles generates one TS file per object type in the
 // fields/ directory, plus a barrel index.ts that re-exports all selectors.
 func (g *Generator) generateFieldSelectionFiles() error {
-	names := g.getSortedObjectTypeNames()
-
 	var entries []TSFieldIndexEntry
 
-	for _, name := range names {
-		def := g.schema.Types[name]
-		if def == nil {
-			continue
-		}
+	for _, def := range g.selectorTypeDefs() {
+		name := def.Name
 		data := g.buildFieldSelectorData(def)
 
 		var buf bytes.Buffer
@@ -137,9 +169,9 @@ func (g *Generator) generateFieldSelectionFiles() error {
 			return fmt.Errorf("failed to execute field selector template for %s: %w", name, err)
 		}
 
-		fileName := toKebabCase(name) + ".ts"
-		if err := g.writer.WriteFile("fields/"+fileName, buf.String()); err != nil {
-			return fmt.Errorf("write fields/%s: %w", fileName, err)
+		rel := dirFields + "/" + toKebabCase(name) + tsExt
+		if err := g.writer.WriteFile(rel, buf.String()); err != nil {
+			return fmt.Errorf("write %s: %w", rel, err)
 		}
 
 		entries = append(entries, TSFieldIndexEntry{
@@ -154,5 +186,14 @@ func (g *Generator) generateFieldSelectionFiles() error {
 		return fmt.Errorf("failed to execute field selector index template: %w", err)
 	}
 
-	return g.writer.WriteFile("fields/index.ts", buf.String())
+	return g.writer.WriteFile(dirFields+"/"+indexFile, buf.String())
+}
+
+// upperFirst upper-cases the first ASCII letter of s, so on<Type>() reads as
+// camelCase for lowercase (Hasura-style) type names: users → onUsers.
+func upperFirst(s string) string {
+	if s == "" || s[0] < 'a' || s[0] > 'z' {
+		return s
+	}
+	return string(s[0]-'a'+'A') + s[1:]
 }

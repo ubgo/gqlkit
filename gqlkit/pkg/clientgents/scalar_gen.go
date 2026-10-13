@@ -16,10 +16,18 @@ type TSScalar struct {
 	TSType     string
 	Import     string // npm package to import from (empty = inline alias)
 	ImportType string // type name to import from the package
+	// Codec re-export (all empty without a codec): the user's functions from
+	// CodecImport, renamed to the generated decode<Name> / encode<Name>.
+	CodecImport string
+	Decode      string // user's decode export
+	DecoderName string // e.g. "decodeDateTime"
+	Encode      string // user's encode export
+	EncoderName string // e.g. "encodeDateTime"
 }
 
-// generateScalars collects all custom (non-built-in) scalars from the schema,
-// resolves their TS types, and writes scalars/index.ts.
+// generateScalars writes scalars/index.ts with one alias per scalar in the
+// schema — built-ins included, so `ID`, `Int` etc. are importable by name.
+// A binding with an `import` becomes a type re-export instead of an alias.
 func (g *Generator) generateScalars() error {
 	var scalars []TSScalar
 
@@ -27,27 +35,19 @@ func (g *Generator) generateScalars() error {
 		if def.Kind != ast.Scalar {
 			continue
 		}
-		if def.BuiltIn && isGraphQLBuiltIn(def.Name) {
-			continue
-		}
-
-		tsType := g.tsTypeMap.Get(def.Name)
-
-		// Special case: "String" scalar → "GqlString" to avoid TS conflict
-		name := def.Name
-		if name == "String" {
-			name = "GqlString"
-		}
 
 		scalar := TSScalar{
-			Name:   name,
-			TSType: tsType,
+			Name:   scalarAliasName(def.Name),
+			TSType: g.tsTypeMap.Get(def.Name),
 		}
-
-		// If the binding has an external import, carry that through
 		if binding, ok := g.clientConfig.Bindings[def.Name]; ok && binding.Import != "" {
 			scalar.Import = binding.Import
 			scalar.ImportType = binding.Type
+		}
+		if binding, ok := g.scalarCodec(def.Name); ok {
+			scalar.CodecImport = binding.CodecImport
+			scalar.Decode, scalar.DecoderName = binding.Decode, g.decoderName(def.Name)
+			scalar.Encode, scalar.EncoderName = binding.Encode, g.encoderName(def.Name)
 		}
 
 		scalars = append(scalars, scalar)
@@ -62,36 +62,34 @@ func (g *Generator) generateScalars() error {
 		return fmt.Errorf("failed to execute scalar template: %w", err)
 	}
 
-	return g.writer.WriteFile("scalars/index.ts", buf.String())
+	return g.writer.WriteFile(dirScalars+"/"+indexFile, buf.String())
 }
 
-// isGraphQLBuiltIn returns true for the 5 built-in GraphQL scalars that we DON'T skip
-// (we actually want to emit them all - they get proper TS types)
-func isGraphQLBuiltIn(name string) bool {
-	// We don't skip any - all scalars including String, Int, etc. get emitted
-	return false
+// scalarAliasName returns the name a scalar is exported under from
+// scalars/index.ts. Only String is renamed (see gqlStringAlias); every other
+// scalar keeps its GraphQL name.
+func scalarAliasName(name string) string {
+	if name == gqlStringScalar {
+		return gqlStringAlias
+	}
+	return name
 }
 
-// collectScalarImportNames returns the names of custom scalars referenced by
-// the given type definitions, needed for import statements from "../scalars".
+// collectScalarImportNames returns the scalar aliases referenced by the
+// emitted fields of defs, i.e. the names a module must import from
+// "../scalars". Sorted for deterministic output.
 func (g *Generator) collectScalarImportNames(defs []*ast.Definition) []string {
 	seen := make(map[string]bool)
 	for _, def := range defs {
-		for _, field := range def.Fields {
+		for _, field := range emittedFields(def) {
 			g.collectScalarRefs(field.Type, seen)
 		}
 	}
-
-	var names []string
-	for name := range seen {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return sortedKeys(seen)
 }
 
-// collectScalarRefs recursively walks a GraphQL type and records any custom
-// scalar references into the seen map.
+// collectScalarRefs recursively walks a GraphQL type and records each scalar
+// that fieldTSType renders as an alias reference (rather than inline TS text).
 func (g *Generator) collectScalarRefs(t *ast.Type, seen map[string]bool) {
 	if t == nil {
 		return
@@ -100,21 +98,14 @@ func (g *Generator) collectScalarRefs(t *ast.Type, seen map[string]bool) {
 		g.collectScalarRefs(t.Elem, seen)
 		return
 	}
-	name := t.NamedType
-	def := g.schema.Types[name]
-	if def == nil {
+	def := g.schema.Types[t.NamedType]
+	if def == nil || def.Kind != ast.Scalar {
 		return
 	}
-	if def.Kind == ast.Scalar {
-		// Only collect custom scalars (not built-in mapped ones like String→string)
-		if _, isBuiltIn := g.tsTypeMap[name]; !isBuiltIn || !isSimpleTSType(g.tsTypeMap[name]) {
-			tsName := name
-			if tsName == "String" {
-				tsName = "GqlString"
-			}
-			seen[tsName] = true
-		}
+	if tsType, ok := g.tsTypeMap[t.NamedType]; ok && isSimpleTSType(tsType) {
+		return
 	}
+	seen[scalarAliasName(t.NamedType)] = true
 }
 
 // isSimpleTSType returns true for TS types that don't need imports: the
@@ -133,22 +124,16 @@ func isSimpleTSType(t string) bool {
 	return strings.ContainsAny(t, "<>{}[]| ")
 }
 
-// collectEnumImportNames returns enum type names referenced by the given
-// definitions, needed for import statements from "../enums".
+// collectEnumImportNames returns enum type names referenced by the emitted
+// fields of defs, needed for import statements from "../enums".
 func (g *Generator) collectEnumImportNames(defs []*ast.Definition) []string {
 	seen := make(map[string]bool)
 	for _, def := range defs {
-		for _, field := range def.Fields {
+		for _, field := range emittedFields(def) {
 			g.collectEnumRefs(field.Type, seen)
 		}
 	}
-
-	var names []string
-	for name := range seen {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return sortedKeys(seen)
 }
 
 // collectEnumRefs recursively walks a GraphQL type and records any enum
@@ -168,18 +153,44 @@ func (g *Generator) collectEnumRefs(t *ast.Type, seen map[string]bool) {
 	}
 }
 
-// fieldTSType returns the TypeScript type string for a field's GraphQL type.
-// Object references use the plain type name (same-file or cross-referenced),
-// while scalars use either a direct TS primitive or a custom type alias.
+// fieldTSType returns the TypeScript type text for a GraphQL type, with its
+// nullability: every nullable position admits null, because the server sends
+// JSON null there. It is the single resolver for every position the SDK
+// renders a type in: interface and input fields, selector leaves, operation
+// arguments and non-select operation returns.
+//
+// Why one resolver: operation files used to run a second resolver that
+// rendered unbound custom scalars as `any` and imported the alias anyway,
+// leaving an unused import; the import collectors (collectScalarRefs,
+// classifyTypeImport) mirror namedTSType, so they must stay in step with it.
 func (g *Generator) fieldTSType(t *ast.Type) string {
 	if t == nil {
-		return "any"
+		return tsAny
 	}
-	if t.Elem != nil {
-		return g.fieldTSType(t.Elem) + "[]"
-	}
+	return tsTypeWithLeaf(t, g.namedTSType(getBaseTypeName(t)))
+}
 
-	name := t.NamedType
+// tsTypeWithLeaf renders the list and null structure of t around leaf, the
+// TS text for t's named type: `[Int]!` with leaf "number" becomes
+// "(number | null)[]". Callers pass a different leaf to reuse the structure
+// for generics — "U" in selector callbacks, "T" in select() results.
+func tsTypeWithLeaf(t *ast.Type, leaf string) string {
+	text := leaf
+	if t.Elem != nil {
+		text = tsListOf(tsTypeWithLeaf(t.Elem, leaf))
+	}
+	if !t.NonNull {
+		text = tsOrNull(text)
+	}
+	return text
+}
+
+// namedTSType returns the TS text for one GraphQL named type: a scalar whose
+// binding is simple TS text (see isSimpleTSType) is inlined, any other scalar
+// references its scalars/index.ts alias; enums, objects, interfaces and
+// inputs reference their own name; a name missing from the schema falls back
+// through the bindings to tsAny. A union references its types/index.ts alias.
+func (g *Generator) namedTSType(name string) string {
 	def := g.schema.Types[name]
 	if def == nil {
 		return g.tsTypeMap.Get(name)
@@ -187,56 +198,15 @@ func (g *Generator) fieldTSType(t *ast.Type) string {
 
 	switch def.Kind {
 	case ast.Scalar:
-		// Built-in scalars → use direct TS type
 		if tsType, ok := g.tsTypeMap[name]; ok && isSimpleTSType(tsType) {
 			return tsType
 		}
-		// Custom scalars → reference the scalar type alias
-		if name == "String" {
-			return "GqlString"
-		}
-		return name
-	case ast.Enum:
-		return name
-	case ast.Object, ast.Interface, ast.InputObject:
+		return scalarAliasName(name)
+	case ast.Enum, ast.Object, ast.Interface, ast.InputObject, ast.Union:
 		return name
 	}
 
-	return "any"
-}
-
-// fieldTSTypeStr builds a full TypeScript interface field declaration string
-// like "field?: Type;" or "field: Type;" based on nullability.
-func (g *Generator) fieldTSTypeStr(fieldName string, t *ast.Type) string {
-	// List types are fully resolved by fieldTSType, including element
-	// nullability, so there is nothing extra to do for t.Elem here.
-	tsType := g.fieldTSType(t)
-
-	optional := !t.NonNull
-	if optional {
-		return fmt.Sprintf("%s?: %s;", fieldName, tsType)
-	}
-	return fmt.Sprintf("%s: %s;", fieldName, tsType)
-}
-
-// isCustomScalarRef returns true if the type references a custom scalar that
-// is not a simple TS primitive (string/number/boolean/any).
-func (g *Generator) isCustomScalarRef(t *ast.Type) bool {
-	if t == nil {
-		return false
-	}
-	if t.Elem != nil {
-		return g.isCustomScalarRef(t.Elem)
-	}
-	name := t.NamedType
-	def := g.schema.Types[name]
-	if def == nil || def.Kind != ast.Scalar {
-		return false
-	}
-	if tsType, ok := g.tsTypeMap[name]; ok && isSimpleTSType(tsType) {
-		return false
-	}
-	return true
+	return tsAny
 }
 
 // collectFieldSelectorTypeImports collects enum and custom scalar import names
@@ -246,78 +216,14 @@ func (g *Generator) collectFieldSelectorTypeImports(def *ast.Definition) (enumIm
 	enumSeen := make(map[string]bool)
 	scalarSeen := make(map[string]bool)
 
-	for _, field := range def.Fields {
-		if skipGenField(field.Name) {
-			continue
-		}
-		// Skip object fields (they use generic U, not a concrete type name)
-		if isObjectType(g.schema, field.Type) {
+	for _, field := range emittedFields(def) {
+		// Object fields use the generic U, not a concrete type name.
+		if isCompositeType(g.schema, field.Type) {
 			continue
 		}
 		g.collectEnumRefs(field.Type, enumSeen)
 		g.collectScalarRefs(field.Type, scalarSeen)
 	}
 
-	for name := range enumSeen {
-		enumImports = append(enumImports, name)
-	}
-	sort.Strings(enumImports)
-
-	for name := range scalarSeen {
-		scalarImports = append(scalarImports, name)
-	}
-	sort.Strings(scalarImports)
-	return
-}
-
-// collectTypeEnumImports collects enum type names that need importing for types/index.ts
-func (g *Generator) collectTypeEnumImports() []string {
-	seen := make(map[string]bool)
-	for _, def := range g.schema.Types {
-		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
-			continue
-		}
-		if def.Kind != ast.Object && def.Kind != ast.Interface {
-			continue
-		}
-		if def.Name == "Query" || def.Name == "Mutation" || def.Name == "Subscription" {
-			continue
-		}
-		for _, field := range def.Fields {
-			g.collectEnumRefs(field.Type, seen)
-		}
-	}
-
-	var names []string
-	for name := range seen {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}
-
-// collectTypeScalarImports collects scalar type names that need importing for types/index.ts
-func (g *Generator) collectTypeScalarImports() []string {
-	seen := make(map[string]bool)
-	for _, def := range g.schema.Types {
-		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
-			continue
-		}
-		if def.Kind != ast.Object && def.Kind != ast.Interface {
-			continue
-		}
-		if def.Name == "Query" || def.Name == "Mutation" || def.Name == "Subscription" {
-			continue
-		}
-		for _, field := range def.Fields {
-			g.collectScalarRefs(field.Type, seen)
-		}
-	}
-
-	var names []string
-	for name := range seen {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return sortedKeys(enumSeen), sortedKeys(scalarSeen)
 }

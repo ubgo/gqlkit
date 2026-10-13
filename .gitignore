@@ -56,3 +56,25 @@ gqlkit/schema.json
 
 # goreleaser build output.
 dist/
+
+# lore
+.lore/lore.db
+.lore/lore.db-shm
+.lore/lore.db-wal
+.lore/state/
+.lore/backups/
+# >>> lore-sync >>>
+!.lore/data/
+!.lore/data/**
+.lore/data/**/.DS_Store
+.lore/data/**/Desktop.ini
+.lore/data/**/Thumbs.db
+.lore/data/**/desktop.ini
+.lore/data/**/._*
+# <<< lore-sync <<<
+
+# Generator binary built by `task example-ts:test` (~6.5MB) — regenerable, never committed.
+/example-ts/generate
+
+# Watchman cookie files dropped in the repo root by file watchers.
+.watchman-cookie-*

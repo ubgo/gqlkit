@@ -3,10 +3,12 @@ package clientgen
 import (
 	"bytes"
 	"fmt"
-	"github.com/ubgo/gqlkit/gqlkit/pkg/util"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/ubgo/gqlkit/gqlkit/pkg/util"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -54,41 +56,66 @@ func skipGenField(name string) bool {
 	return strings.HasPrefix(name, "__") || util.ToPascalCase(name) == ""
 }
 
-// TypeDef holds the metadata for a single Go struct generated from a GraphQL
-// object or interface type. Interfaces produce marker types with an Is<Name>()
-// method; objects produce full structs with fields.
+// TypeDef holds the metadata for a single Go declaration generated from a
+// GraphQL object, interface or input object type. It is the template data
+// element of both types.tmpl and inputs.tmpl.
+//
+// Shapes by IsInterface: true → an abstract type (GraphQL interface or, with
+// IsUnion, union): a Go interface with an Is<Name>() marker, plus the
+// <Name>Value decoding wrapper over PossibleTypes; no Fields. false → a
+// struct with Fields, plus an Is<X>() method per entry of Implements. See
+// abstract.go for the full abstract-type contract.
 type TypeDef struct {
 	Name        string
 	Description string
 	Fields      []FieldDef
 	IsInterface bool
+	// IsUnion distinguishes a union from an interface (only the generated
+	// comment differs).
+	IsUnion bool
+	// ValueName is the decoding wrapper's Go name (abstract types only).
+	ValueName string
+	// PossibleTypes are the concrete members (abstract types only).
+	PossibleTypes []PossibleType
+	// Implements lists the abstract Go types this object belongs to.
+	Implements []string
+	// NeedsWireMarshal marks an input type with at least one field whose
+	// WireTag differs from its JSONTag, so it gets a go1.24 MarshalJSON.
+	NeedsWireMarshal bool
 }
 
 // FieldDef holds the metadata for a single field within a generated Go struct.
+// JSONTag is the complete backquoted struct tag; OmitEmpty reports whether it
+// carries an omit option (omitempty or omitzero, see buildFieldDefs).
 type FieldDef struct {
 	Name        string
 	Description string
 	GoType      string
 	JSONTag     string
 	OmitEmpty   bool
+	// WireTag is the tag used by the go1.24 MarshalJSON of input types (see
+	// inputs_json.tmpl); it differs from JSONTag only for pointer-mode slice
+	// fields (omitzero there, omitempty in JSONTag).
+	WireTag string
 }
 
-// TypeDefList is a sortable slice of TypeDef used for deterministic output.
-type TypeDefList []TypeDef
-
-// graphQLToGoType converts a GraphQL AST type to its Go equivalent string.
-// It handles lists ([]T), non-null vs nullable (*T for pointers), and
-// delegates named type resolution to namedTypeToGo.
+// graphQLToGoType converts a GraphQL AST type to its Go equivalent string for
+// struct fields in the types/ and inputs/ packages. It handles lists ([]T),
+// non-null vs nullable (*T for pointers), and delegates named type resolution
+// to namedTypeToGo.
 func (g *Generator) graphQLToGoType(t *ast.Type) string {
 	if t == nil {
-		return "interface{}"
+		return goEmptyInterface
 	}
 
 	goType := g.resolveType(t)
 
 	// Slice element pointering is handled in the recursive graphQLToGoType call
-	// on t.Elem, so a []T is returned as-is here.
-	if strings.HasPrefix(goType, "[]") {
+	// on t.Elem, so a []T is returned as-is here. A binding whose Go type is
+	// itself a slice ([]byte) or pointer (*big.Int) is also left as-is: nil
+	// already models null, and **T would be useless. Go type syntax is prefix-only, so prepending "*" / "[]"
+	// can never re-associate the way TS's `A | B[]` does.
+	if isNilableGoType(goType) {
 		return goType
 	}
 
@@ -111,6 +138,12 @@ func (g *Generator) graphQLToGoType(t *ast.Type) string {
 	return goType
 }
 
+// isNilableGoType reports whether rendered Go type text is already nil-able
+// by construction (a slice or a pointer), so nullability needs no extra "*".
+func isNilableGoType(goType string) bool {
+	return strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "*")
+}
+
 // isStructKind reports whether the named type is generated as a Go struct
 // (a GraphQL object or input object). Fields of such types must be emitted as
 // pointers to break value-type cycles — see graphQLToGoType. Custom-bound types
@@ -127,259 +160,278 @@ func (g *Generator) isStructKind(name string) bool {
 	if def == nil {
 		return false
 	}
-	return def.Kind == ast.Object || def.Kind == ast.InputObject
+	// Abstract types render as their <Name>Value wrapper struct.
+	return def.Kind == ast.Object || def.Kind == ast.InputObject || isAbstractKind(def)
 }
 
-// resolveType resolves the base Go type from a GraphQL type
+// resolveType resolves the base Go type from a GraphQL type, recursing into
+// list element types.
 func (g *Generator) resolveType(t *ast.Type) string {
 	if t.Elem != nil {
-		// It's a list type
-		elemType := g.graphQLToGoType(t.Elem)
-		return "[]" + elemType
+		return "[]" + g.graphQLToGoType(t.Elem)
 	}
-
-	// Named type
 	return g.namedTypeToGo(t.NamedType)
 }
 
-// namedTypeToGo converts a named GraphQL type to its Go representation.
-// It checks custom bindings first, then falls back to schema kind-based
-// resolution (scalars. prefix, enums. prefix, or plain type name).
+// namedTypeToGo converts a named GraphQL type to its Go representation as
+// seen from the types/ and inputs/ packages.
+//
+// Resolution order: a binding (built-in or config.jsonc) wins; then the schema
+// kind decides — scalars and enums are qualified with their generated package,
+// objects and input objects are same-package names, and interfaces and unions
+// are their <Name>Value decoding wrapper (see abstract.go); a name absent from the schema (only reachable by a caller bug, since
+// gqlparser validates every reference) maps to interface{} too rather than
+// panicking.
 func (g *Generator) namedTypeToGo(name string) string {
-
-	// Check if there's a custom binding
 	if entry, ok := g.clientConfig.Bindings[name]; ok {
 		return entry.GoType
-		// // If GoPackage is set by typegql.Build, construct type as package.TypeName
-		// if entry.PkgName != "" {
-		// 	// Extract type name from Model (which is set to t.Obj().Name() by typegql.Build)
-		// 	typeName := entry.Model
-		// 	if typeName == "" {
-		// 		typeName = name
-		// 	}
-		// 	// return entry.GoPackage + "." + typeName
-		// 	return entry.GoType
-		// }
-		// // Use GoType if available (for built-in types processed by typegql)
-		// if entry.GoType != "" {
-		// 	return entry.GoType
-		// }
-		// // Fallback to Model
-		// return entry.Model
 	}
 
 	def := g.schema.Types[name]
+	if def == nil {
+		return goEmptyInterface
+	}
 
 	switch def.Kind {
 	case ast.Scalar:
-		return "scalars." + exportName(def.Name)
+		return pkgScalars + "." + exportName(def.Name)
 	case ast.Enum:
-		return "enums." + exportName(def.Name)
-	case ast.Object:
+		return pkgEnums + "." + exportName(def.Name)
+	case ast.Object, ast.InputObject:
 		return exportName(def.Name)
-	case ast.InputObject:
-		return exportName(def.Name)
-		// case ast.Interface:
-		// 	return def.Name
-		// // TODO: Handle union types
-		// case ast.Union:
-		// 	return def.Name
+	case ast.Interface, ast.Union:
+		return abstractValueName(def.Name)
 	}
 
-	return "interface{}"
+	return goEmptyInterface
+}
 
-	// Built-in scalars
-	// switch name {
-	// case "String":
-	// 	return "string"
-	// case "Int":
-	// 	return "int"
-	// case "Float":
-	// 	return "float64"
-	// case "Boolean":
-	// 	return "bool"
-	// case "ID":
-	// 	return "string"
-	// }
+// isGeneratedDataType reports whether a schema definition gets a data struct
+// (or interface marker) in types/: user-defined objects and interfaces other
+// than the conventional root operation types and the __* introspection types.
+//
+// Why the roots are skipped: they are represented by the queries/ and
+// mutations/ builder packages. A non-conventionally named root (Shopify's
+// "QueryRoot") is NOT skipped, because other types can reference it by value
+// (Job.query: QueryRoot); its injected __schema / __type meta-fields are
+// dropped by skipGenField instead. generateTypes, collectTypeImports and
+// getSortedObjectTypeNames all route through this so the rendered types and
+// their imports can never disagree.
+func isGeneratedDataType(def *ast.Definition) bool {
+	if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
+		return false
+	}
+	if def.Kind != ast.Object && !isAbstractKind(def) {
+		return false
+	}
+	return def.Kind != ast.Object || !isConventionalRootName(def.Name)
+}
 
-	// // User-defined types (keep the name)
-	// return name
+// JSON tag options for generated struct fields.
+const (
+	// tagOmitEmpty drops nil pointers — and, for slices, empty ones too.
+	tagOmitEmpty = "omitempty"
+	// tagOmitZero (encoding/json, Go 1.24+) drops only the zero value: a nil
+	// slice or an unset Opt, but NOT a non-nil empty slice, so [] can be sent.
+	tagOmitZero = "omitzero"
+)
+
+// buildFieldDefs converts a definition's fields into struct-field metadata
+// for the types/ and inputs/ templates, skipping meta and placeholder fields
+// (see skipGenField).
+//
+// Tag and type per field (the wire contract of the generated SDK):
+//   - non-null: plain tag, always sent.
+//   - nullable object field (types/): omitempty — output only, never marshalled
+//     by the SDK itself.
+//   - nullable input field, OptionalOpt: Opt[T] with omitzero — unset is
+//     omitted, Null[T]() sends null, Some(v) sends v.
+//   - nullable input field, OptionalPointer, slice-typed (a list, or a
+//     binding such as []byte): omitempty in the struct, omitzero in WireTag.
+//     The struct tag must stay omitempty: a toolchain older than Go 1.24
+//     ignores omitzero, so a nil slice would be sent as null and CLEAR the
+//     server value. The go1.24-only MarshalJSON (inputs_json.tmpl) applies
+//     WireTag, so on 1.24+ an empty non-nil slice is sent as [] while nil is
+//     still omitted; older toolchains keep the previous (lossless) behaviour.
+//   - nullable input field, OptionalPointer, otherwise: *T with omitempty.
+func (g *Generator) buildFieldDefs(def *ast.Definition) []FieldDef {
+	isInput := def.Kind == ast.InputObject
+	// Methods the generator puts on this struct; fields must not shadow them.
+	var reserved []string
+	if isInput {
+		reserved = inputReservedNames
+	} else {
+		// Object structs carry an Is<X>() marker per abstract membership.
+		for _, x := range g.abstractMemberships(def) {
+			reserved = append(reserved, "Is"+x)
+		}
+	}
+	goNames := fieldGoNames(def.Fields, reserved...)
+	var defs []FieldDef
+	for _, field := range def.Fields {
+		if skipGenField(field.Name) {
+			continue
+		}
+		nullable := !field.Type.NonNull
+		goType := g.graphQLToGoType(field.Type)
+		omit, wireOmit := "", ""
+		if nullable {
+			omit = tagOmitEmpty
+			if isInput {
+				switch g.optionalModeFor(def.Name, field.Name) {
+				case OptionalOpt:
+					goType = "Opt[" + g.optInnerGoType(field.Type) + "]"
+					omit = tagOmitZero // opt.go is go1.24-only, so this is safe
+				case OptionalPointer:
+					if strings.HasPrefix(goType, "[]") {
+						wireOmit = tagOmitZero
+					}
+				}
+			}
+		}
+		if wireOmit == "" {
+			wireOmit = omit
+		}
+		defs = append(defs, FieldDef{
+			Name:        goNames[field.Name],
+			Description: field.Description,
+			GoType:      goType,
+			JSONTag:     jsonTagFor(field.Name, omit),
+			OmitEmpty:   omit != "",
+			WireTag:     jsonTagFor(field.Name, wireOmit),
+		})
+	}
+	return defs
+}
+
+// jsonTagFor renders a backquoted json struct tag; GraphQL field names are
+// the wire keys verbatim.
+func jsonTagFor(name, omit string) string {
+	if omit == "" {
+		return fmt.Sprintf("`json:\"%s\"`", name)
+	}
+	return fmt.Sprintf("`json:\"%s,%s\"`", name, omit)
+}
+
+// sortedTypeDefs flattens a name-keyed TypeDef map into a slice sorted by Go
+// name, so generated files are byte-identical across runs.
+func sortedTypeDefs(m map[string]TypeDef) []TypeDef {
+	list := make([]TypeDef, 0, len(m))
+	for _, td := range m {
+		list = append(list, td)
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].Name < list[j].Name })
+	return list
+}
+
+// sortedImports flattens an import set into a sorted slice.
+func sortedImports(set map[string]bool) []string {
+	list := make([]string, 0, len(set))
+	for imp := range set {
+		list = append(list, imp)
+	}
+	sort.Strings(list)
+	return list
 }
 
 // generateTypes collects all non-built-in object and interface types from the
-// schema (excluding Query, Mutation, Subscription), converts them to TypeDef
-// structs with Go field metadata, and writes types/types.go via the types template.
+// schema (excluding the conventional roots, see isGeneratedDataType), converts
+// them to TypeDef structs with Go field metadata, and writes types/types.go via
+// the types template. Interfaces get only a marker (no fields).
 func (g *Generator) generateTypes() error {
+	if err := g.checkAbstractNameCollisions(); err != nil {
+		return err
+	}
 	typeDefMap := make(map[string]TypeDef)
+	hasAbstract := false
 
 	for _, def := range g.schema.Types {
-		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
+		if !isGeneratedDataType(def) {
 			continue
 		}
-
-		// Skip the conventional root operation types — they are represented by
-		// the queries/ and mutations/ builder packages, not as data structs.
-		// A schema whose root is named non-conventionally (e.g. Shopify's
-		// "QueryRoot") is NOT skipped: other types can reference it by value
-		// (Job.query: QueryRoot), so its struct + field selector must exist.
-		// Either way, the injected __schema / __type meta-fields are dropped in
-		// the field loop below, so no reference to the ungenerated __Schema /
-		// __Type builtin types leaks out.
-		if def.Kind == ast.Object && (def.Name == "Query" || def.Name == "Mutation" || def.Name == "Subscription") {
-			continue
+		typeDef := TypeDef{
+			Name:        exportName(def.Name),
+			Description: def.Description,
+			IsInterface: isAbstractKind(def),
+			IsUnion:     def.Kind == ast.Union,
 		}
-
-		if def.Kind == ast.Object || def.Kind == ast.Interface {
-			typeDef := TypeDef{
-				Name:        exportName(def.Name),
-				Description: def.Description,
-				IsInterface: def.Kind == ast.Interface,
-			}
-
-			// Interfaces only need the Is<Name>() method, not fields
-			if def.Kind == ast.Interface {
-				typeDefMap[def.Name] = typeDef
-				continue
-			}
-
-			for _, field := range def.Fields {
-				// Skip injected introspection meta-fields and placeholder fields
-				// with no valid Go identifier (see skipGenField).
-				if skipGenField(field.Name) {
-					continue
-				}
-				goType := g.graphQLToGoType(field.Type)
-				omitempty := !field.Type.NonNull
-				jsonName := field.Name // GraphQL field names are already camelCase
-
-				var jsonTag string
-				if omitempty {
-					jsonTag = fmt.Sprintf("`json:\"%s,omitempty\"`", jsonName)
-				} else {
-					jsonTag = fmt.Sprintf("`json:\"%s\"`", jsonName)
-				}
-
-				fieldDef := FieldDef{
-					Name:        util.ToPascalCase(field.Name),
-					Description: field.Description,
-					GoType:      goType,
-					JSONTag:     jsonTag,
-					OmitEmpty:   omitempty,
-				}
-
-				typeDef.Fields = append(typeDef.Fields, fieldDef)
-			}
-
-			typeDefMap[def.Name] = typeDef
+		if isAbstractKind(def) {
+			typeDef.ValueName = abstractValueName(def.Name)
+			typeDef.PossibleTypes = g.possibleTypes(def)
+			hasAbstract = true
+		} else {
+			typeDef.Fields = g.buildFieldDefs(def)
+			typeDef.Implements = g.abstractMemberships(def)
 		}
+		typeDefMap[def.Name] = typeDef
 	}
 
-	// Convert map to sorted slice for deterministic output
-	typeList := make([]TypeDef, 0, len(typeDefMap))
-	for _, typeDef := range typeDefMap {
-		typeList = append(typeList, typeDef)
-	}
-	sort.Slice(typeList, func(i, j int) bool {
-		return typeList[i].Name < typeList[j].Name
-	})
-
-	// Collect imports
 	imports := g.collectTypeImports()
-
-	// goutil.PrintToJSON(imports)
-
-	// goutil.PrintToJSON(g.clientConfig.Bindings)
+	// The <Name>Value decoders use encoding/json.
+	if hasAbstract && !slices.Contains(imports, "encoding/json") {
+		imports = append(imports, "encoding/json")
+		sort.Strings(imports)
+	}
 
 	b := bytes.NewBuffer(nil)
-	err := g.templates.ExecuteTemplate(b, "types", map[string]interface{}{
-		"Config":  g.config,
-		"Types":   typeList,
-		"Imports": imports,
-		"Package": "types",
+	err := g.templates.ExecuteTemplate(b, "types", typesTemplateData{
+		headerData: headerData{Package: pkgTypes},
+		Types:      sortedTypeDefs(typeDefMap),
+		Imports:    imports,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
-	content := b.String()
 
-	return g.writer.WriteFile("types/types.go", content)
+	return g.writer.WriteFile(pkgTypes+"/types.go", b.String())
 }
 
-// collectTypeImports collects necessary imports for types
+// collectTypeImports collects the import paths the types/ package needs. It
+// walks exactly the fields generateTypes renders: object fields only.
+// Interfaces render as field-less markers, so walking their fields would
+// import a package nothing references whenever an interface has no
+// implementing object ("imported and not used").
 func (g *Generator) collectTypeImports() []string {
 	imports := make(map[string]bool)
-
 	for _, def := range g.schema.Types {
-		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
+		if !isGeneratedDataType(def) || def.Kind != ast.Object {
 			continue
 		}
-
-		// Skip the conventional root types — mirrors generateTypes so import
-		// collection matches what is actually rendered. Non-conventional roots
-		// (QueryRoot) are rendered, so their imports are collected here too,
-		// minus the injected __* meta-fields.
-		if def.Kind == ast.Object && (def.Name == "Query" || def.Name == "Mutation" || def.Name == "Subscription") {
-			continue
-		}
-
-		if def.Kind == ast.Object || def.Kind == ast.Interface {
-			for _, field := range def.Fields {
-				if skipGenField(field.Name) {
-					continue
-				}
-				g.checkTypeForImports(field.Type, imports)
+		for _, field := range def.Fields {
+			if skipGenField(field.Name) {
+				continue
 			}
+			g.checkTypeForImports(field.Type, imports)
 		}
 	}
-
-	// Convert to sorted slice
-	importList := make([]string, 0, len(imports))
-	for imp := range imports {
-		importList = append(importList, imp)
-	}
-	sort.Strings(importList)
-
-	return importList
+	return sortedImports(imports)
 }
 
-// checkTypeForImports checks a type and adds necessary imports
+// checkTypeForImports adds to imports the packages the Go rendering of t
+// (as produced by namedTypeToGo) references: a binding's GoImport, or the
+// generated scalars / enums package. Objects, inputs and unbound
+// interfaces/unions need no import from the types/ point of view.
 func (g *Generator) checkTypeForImports(t *ast.Type, imports map[string]bool) {
 	if t.Elem != nil {
 		g.checkTypeForImports(t.Elem, imports)
 		return
 	}
 
-	// Check if the type has a custom binding with an import
 	if entry, ok := g.clientConfig.Bindings[t.NamedType]; ok {
-		// Use GoImport from typegql if available
 		if entry.GoImport != "" {
 			imports[entry.GoImport] = true
-			return
 		}
-		// // Fallback: check Model for standard library types
-		// if strings.Contains(entry.Model, "time.Time") {
-		// 	imports["time"] = true
-		// } else if strings.Contains(entry.Model, "json.RawMessage") {
-		// 	imports["encoding/json"] = true
-		// }
 		return
 	}
 
-	if g.schema.Types[t.NamedType].Kind == ast.Scalar {
-		imports[g.config.Package+"/scalars"] = true
+	def := g.schema.Types[t.NamedType]
+	if def == nil {
 		return
 	}
-
-	if g.schema.Types[t.NamedType].Kind == ast.Enum {
-		imports[g.config.Package+"/enums"] = true
-		return
+	switch def.Kind {
+	case ast.Scalar:
+		imports[g.config.Package+"/"+pkgScalars] = true
+	case ast.Enum:
+		imports[g.config.Package+"/"+pkgEnums] = true
 	}
-
-	// Check built-in types that need imports
-	// switch t.NamedType {
-	// case "Time", "DateTime", "Date":
-	// 	imports["time"] = true
-	// case "JSON":
-	// 	imports["encoding/json"] = true
-	// }
 }

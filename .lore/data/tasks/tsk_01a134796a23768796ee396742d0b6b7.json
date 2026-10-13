@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "docs/typescript/*.md, example-ts/cmd/samples/{client-options,enums,batch-options,errors,unions,low-level,run-all,mockapi}.ts, edits to docs/getting-started-typescript.md, example-ts/README.md, example-ts/DOCS.md, gqlkit-ts-demo/README.md",
+  "commitment": "accepted",
+  "completed_at": "2026-10-13T09:10:14.011968000Z",
+  "created_at": "2026-10-13T08:55:34.691424000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a134796a23768796ee396742d0b6b7",
+  "mission_id": null,
+  "plan_id": null,
+  "priority": "medium",
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "started_at": "2026-10-13T08:55:37.038473000Z",
+  "status": "done",
+  "tasklist_id": "tlt_01a1346fcb3c7845a13f840f3280f819",
+  "title": "Docs batch 2: TypeScript guides (docs/typescript/*) + example-ts samples",
+  "updated_at": "2026-10-13T09:10:14.011970000Z"
+}

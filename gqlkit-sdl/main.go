@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"runtime/debug"
+	"slices"
 	"strings"
 
 	"github.com/ubgo/gqlkit/gqlkit-sdl/schema"
@@ -11,7 +13,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// version is the release identity, injected by goreleaser via
+// `-ldflags "-X main.version=..."`. "dev" means not injected; resolveVersion
+// then falls back to the module version recorded in build info.
 var version = "dev"
+
+// Output formats accepted by `fetch --format`. formatGraphQL is the default.
+const (
+	formatGraphQL = "graphql"
+	formatJSON    = "json"
+)
+
+// outputFormats is the canonical list of --format values, used to validate
+// the flag and to name the choices in its error.
+var outputFormats = []string{formatGraphQL, formatJSON}
+
+// defaultOutputPath is where `fetch` writes when --output is not given.
+const defaultOutputPath = "schema.graphql"
 
 func main() {
 	rootCmd := &cobra.Command{
@@ -32,7 +50,7 @@ func versionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version and exit",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("gqlkit-sdl", resolveVersion(version, debug.ReadBuildInfo))
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "gqlkit-sdl", resolveVersion(version, debug.ReadBuildInfo))
 		},
 	}
 }
@@ -42,7 +60,7 @@ func fetchCmd() *cobra.Command {
 		url              string
 		output           string
 		headers          []string
-		debug            bool
+		debugCurl        bool
 		format           string
 		onlyQueries      []string
 		onlyMutations    []string
@@ -77,9 +95,21 @@ Examples:
     --exclude-mutations "task.*,space.*" \
     --remove-unused`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Progress lines go to stdout exactly as before; routing them
+			// through cmd lets tests capture them. A failed progress write
+			// cannot affect the schema file, so its error is not checked.
+			out := cmd.OutOrStdout()
+
+			// Validate before any network call: an unknown value used to fall
+			// back to SDL silently, so `-f yaml` wrote GraphQL to schema.yaml.
+			if !slices.Contains(outputFormats, format) {
+				return fmt.Errorf("unknown --format %q (valid: %s)", format, strings.Join(outputFormats, ", "))
+			}
+
 			opts := &schema.FetchOptions{
-				Headers: make(map[string]string),
-				Debug:   debug,
+				Headers:     make(map[string]string),
+				Debug:       debugCurl,
+				DebugOutput: out,
 			}
 
 			for _, h := range headers {
@@ -90,8 +120,8 @@ Examples:
 				opts.Headers[strings.TrimSpace(key)] = strings.TrimSpace(value)
 			}
 
-			if !debug {
-				fmt.Printf("Fetching schema from %s...\n", url)
+			if !debugCurl {
+				_, _ = fmt.Fprintf(out, "Fetching schema from %s...\n", url)
 			}
 			introspectionSchema, err := schema.FetchSchema(url, opts)
 			if err != nil {
@@ -109,35 +139,43 @@ Examples:
 				RemoveUnused:     removeUnused,
 			}
 			if filterOpts.HasFilters() || filterOpts.RemoveUnused {
-				fmt.Println("Applying filters...")
-				introspectionSchema = schema.FilterSchema(introspectionSchema, filterOpts)
+				_, _ = fmt.Fprintln(out, "Applying filters...")
+				filtered, err := schema.FilterSchema(introspectionSchema, filterOpts)
+				if err != nil {
+					return fmt.Errorf("filtering schema: %w", err)
+				}
+				// FilterSchema drops a root left with no fields (empty types
+				// are invalid SDL); say so, since the user did not ask for it.
+				warnDroppedRoot(cmd.ErrOrStderr(), "mutation", introspectionSchema.MutationType, filtered.MutationType)
+				warnDroppedRoot(cmd.ErrOrStderr(), "subscription", introspectionSchema.SubscriptionType, filtered.SubscriptionType)
+				introspectionSchema = filtered
 			}
 
 			switch format {
-			case "json":
-				fmt.Printf("Saving JSON to %s...\n", output)
+			case formatJSON:
+				_, _ = fmt.Fprintf(out, "Saving JSON to %s...\n", output)
 				if err := schema.SaveAsJSON(introspectionSchema, output); err != nil {
 					return fmt.Errorf("saving JSON file: %w", err)
 				}
-			default:
-				fmt.Println("Converting to SDL format...")
+			case formatGraphQL:
+				_, _ = fmt.Fprintln(out, "Converting to SDL format...")
 				sdl := schema.ConvertToSDL(introspectionSchema)
-				fmt.Printf("Saving to %s...\n", output)
+				_, _ = fmt.Fprintf(out, "Saving to %s...\n", output)
 				if err := schema.SaveToFile(sdl, output); err != nil {
 					return fmt.Errorf("saving file: %w", err)
 				}
 			}
 
-			fmt.Println("Done! Schema saved successfully.")
+			_, _ = fmt.Fprintln(out, "Done! Schema saved successfully.")
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&url, "url", "", "GraphQL endpoint URL (required)")
-	cmd.Flags().StringVarP(&output, "output", "o", "schema.graphql", "Output file path")
+	cmd.Flags().StringVarP(&output, "output", "o", defaultOutputPath, "Output file path")
 	cmd.Flags().StringArrayVarP(&headers, "header", "H", nil, `HTTP header in "Key:Value" format (repeatable)`)
-	cmd.Flags().BoolVar(&debug, "debug", false, "Print the curl command for debugging")
-	cmd.Flags().StringVarP(&format, "format", "f", "graphql", `Output format: "graphql" (SDL) or "json"`)
+	cmd.Flags().BoolVar(&debugCurl, "debug", false, "Print the curl command for debugging")
+	cmd.Flags().StringVarP(&format, "format", "f", formatGraphQL, `Output format: "graphql" (SDL) or "json"`)
 	cmd.Flags().StringSliceVar(&onlyQueries, "only-queries", nil, "Keep only these query fields (comma-separated)")
 	cmd.Flags().StringSliceVar(&onlyMutations, "only-mutations", nil, "Keep only these mutation fields (comma-separated)")
 	cmd.Flags().StringSliceVar(&excludeQueries, "exclude-queries", nil, "Remove these query fields (comma-separated)")
@@ -150,4 +188,12 @@ Examples:
 	}
 
 	return cmd
+}
+
+// warnDroppedRoot prints a note when filtering removed a root operation type
+// that the fetched schema had. A failed write only loses the note.
+func warnDroppedRoot(w io.Writer, kind string, before, after *schema.TypeRef) {
+	if before != nil && after == nil {
+		_, _ = fmt.Fprintf(w, "Note: filters removed every %s field; dropped the empty %s type from the output.\n", kind, before.Name)
+	}
 }

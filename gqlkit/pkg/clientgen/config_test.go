@@ -1,6 +1,7 @@
 package clientgen
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,10 +30,10 @@ func TestValidateDetectsPackageFromGoMod(t *testing.T) {
 
 // TestValidateDefaults covers the OutputDir / PackageName default application.
 func TestValidateDefaults(t *testing.T) {
-	t.Chdir(t.TempDir()) // no go.mod -> Package stays empty
+	t.Chdir(t.TempDir()) // no go.mod and no -m: Package undeterminable
 	cfg := Config{SchemaPath: "x.graphql"}
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("Validate: %v", err)
+	if err := cfg.Validate(); !errors.Is(err, ErrPackageUndetermined) {
+		t.Fatalf("Validate: err = %v, want ErrPackageUndetermined", err)
 	}
 	if cfg.OutputDir != "./sdk" {
 		t.Errorf("OutputDir default = %q, want ./sdk", cfg.OutputDir)
@@ -104,6 +105,52 @@ func TestValidateModulePathThreadsIntoPackage(t *testing.T) {
 			}
 			if cfg.PackageName != tt.wantPackageName {
 				t.Errorf("PackageName = %q, want %q", cfg.PackageName, tt.wantPackageName)
+			}
+		})
+	}
+}
+
+// TestDetectPackagePathMatrix crosses where the command runs (module root,
+// a sub-directory) with where the output goes (relative, nested, absolute,
+// the module root itself, outside the module), plus the no-go.mod case. The
+// old code only read ./go.mod and blindly joined OutputDir, so a sub-directory
+// run produced no Package at all and generation emitted "/types" with exit 0.
+func TestDetectPackagePathMatrix(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/proj\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(root, "cmd", "gen")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+
+	cases := []struct {
+		name, cwd, out, want string
+		wantErr              bool
+	}{
+		{"root ./sdk", root, "./sdk", "example.com/proj/sdk", false},
+		{"root nested", root, "internal/gql/sdk", "example.com/proj/internal/gql/sdk", false},
+		{"root absolute", root, filepath.Join(root, "pkg", "sdk"), "example.com/proj/pkg/sdk", false},
+		{"root itself", root, ".", "example.com/proj", false},
+		{"sub dir walks up", sub, "./sdk", "example.com/proj/cmd/gen/sdk", false},
+		{"sub dir parent output", sub, "../../sdk", "example.com/proj/sdk", false},
+		{"output outside module", root, outside, "", true},
+		{"no go.mod anywhere", outside, "./sdk", "", true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Chdir(c.cwd)
+			got, err := detectPackagePath(c.out)
+			if c.wantErr {
+				if !errors.Is(err, ErrPackageUndetermined) {
+					t.Fatalf("err = %v, want ErrPackageUndetermined", err)
+				}
+				return
+			}
+			if err != nil || got != c.want {
+				t.Fatalf("detectPackagePath(%q) = %q, %v; want %q", c.out, got, err, c.want)
 			}
 		})
 	}

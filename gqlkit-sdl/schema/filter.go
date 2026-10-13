@@ -1,7 +1,10 @@
 package schema
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -15,32 +18,83 @@ type FilterOptions struct {
 	RemoveUnused     bool     // Prune types not reachable from root operations
 }
 
+// HasFilters reports whether any include/exclude list is set. RemoveUnused is
+// deliberately not counted: it prunes types, it does not filter root fields,
+// so callers check it separately.
 func (o *FilterOptions) HasFilters() bool {
 	return len(o.OnlyQueries) > 0 || len(o.OnlyMutations) > 0 ||
 		len(o.ExcludeQueries) > 0 || len(o.ExcludeMutations) > 0
 }
 
+// ErrEmptyQueryRoot is returned when the filters remove every field of the
+// query root. GraphQL requires a query type with at least one field, so the
+// result would be SDL that no generator can parse.
+var ErrEmptyQueryRoot = errors.New("filters removed every query field; GraphQL requires at least one")
+
 // FilterSchema applies query/mutation field filters and optionally removes
 // unreferenced types. It returns a new schema, leaving the original unchanged.
-func FilterSchema(schema *IntrospectionSchema, opts *FilterOptions) *IntrospectionSchema {
+//
+// A mutation or subscription root left with no fields is dropped from the
+// schema (type and root entry), because an empty `type Mutation {}` is not
+// valid SDL; callers can detect that by comparing MutationType before and
+// after. An emptied query root is ErrEmptyQueryRoot instead, since the query
+// root cannot be dropped. An invalid regex pattern is an error naming it.
+func FilterSchema(schema *IntrospectionSchema, opts *FilterOptions) (*IntrospectionSchema, error) {
 	if opts == nil {
-		return schema
+		return schema, nil
 	}
 
 	filtered := copySchema(schema)
 
 	if opts.HasFilters() {
-		filterRootTypeFields(filtered, opts)
+		if err := filterRootTypeFields(filtered, opts); err != nil {
+			return nil, err
+		}
+		if err := dropEmptyRoots(filtered); err != nil {
+			return nil, err
+		}
 	}
 
+	// After dropEmptyRoots, so types only a dropped root used are pruned too.
 	if opts.RemoveUnused {
 		removeUnusedTypes(filtered)
 	}
 
-	return filtered
+	return filtered, nil
 }
 
-func filterRootTypeFields(schema *IntrospectionSchema, opts *FilterOptions) {
+// dropEmptyRoots removes a mutation or subscription root type that has no
+// fields left, together with its schema entry, and fails with
+// ErrEmptyQueryRoot when the query root has none.
+func dropEmptyRoots(schema *IntrospectionSchema) error {
+	if schema.QueryType != nil && rootFieldCount(schema, schema.QueryType.Name) == 0 {
+		return ErrEmptyQueryRoot
+	}
+	for _, root := range []**TypeRef{&schema.MutationType, &schema.SubscriptionType} {
+		if *root == nil || rootFieldCount(schema, (*root).Name) != 0 {
+			continue
+		}
+		name := (*root).Name
+		*root = nil
+		schema.Types = slices.DeleteFunc(schema.Types, func(t FullType) bool { return t.Name == name })
+	}
+	return nil
+}
+
+// rootFieldCount returns the number of fields on the named type, or 0 when the
+// schema does not contain it.
+func rootFieldCount(schema *IntrospectionSchema, name string) int {
+	for _, t := range schema.Types {
+		if t.Name == name {
+			return len(t.Fields)
+		}
+	}
+	return 0
+}
+
+// filterRootTypeFields applies the query lists to the query root type and the
+// mutation lists to the mutation root type. Subscriptions are never filtered.
+func filterRootTypeFields(schema *IntrospectionSchema, opts *FilterOptions) error {
 	queryTypeName := ""
 	if schema.QueryType != nil {
 		queryTypeName = schema.QueryType.Name
@@ -50,23 +104,42 @@ func filterRootTypeFields(schema *IntrospectionSchema, opts *FilterOptions) {
 		mutationTypeName = schema.MutationType.Name
 	}
 
+	// Compile every list up front, so a bad pattern fails even when its root
+	// type is absent from this schema.
+	onlyQ, err := compileMatchers(opts.OnlyQueries)
+	if err != nil {
+		return err
+	}
+	exclQ, err := compileMatchers(opts.ExcludeQueries)
+	if err != nil {
+		return err
+	}
+	onlyM, err := compileMatchers(opts.OnlyMutations)
+	if err != nil {
+		return err
+	}
+	exclM, err := compileMatchers(opts.ExcludeMutations)
+	if err != nil {
+		return err
+	}
+
 	for i, t := range schema.Types {
 		if t.Name == queryTypeName && queryTypeName != "" {
-			schema.Types[i].Fields = filterFields(t.Fields, opts.OnlyQueries, opts.ExcludeQueries)
+			schema.Types[i].Fields = filterFields(t.Fields, onlyQ, exclQ)
 		}
 		if t.Name == mutationTypeName && mutationTypeName != "" {
-			schema.Types[i].Fields = filterFields(t.Fields, opts.OnlyMutations, opts.ExcludeMutations)
+			schema.Types[i].Fields = filterFields(t.Fields, onlyM, exclM)
 		}
 	}
+	return nil
 }
 
-func filterFields(fields []Field, only []string, exclude []string) []Field {
-	if len(only) == 0 && len(exclude) == 0 {
+// filterFields keeps a field when it matches `only` (or `only` is empty) and
+// does not match `exclude`; exclude wins when a name matches both.
+func filterFields(fields []Field, onlyMatchers, excludeMatchers []matcher) []Field {
+	if len(onlyMatchers) == 0 && len(excludeMatchers) == 0 {
 		return fields
 	}
-
-	onlyMatchers := compileMatchers(only)
-	excludeMatchers := compileMatchers(exclude)
 
 	var result []Field
 	for _, f := range fields {
@@ -88,7 +161,7 @@ func removeUnusedTypes(schema *IntrospectionSchema) {
 	reachable := make(map[string]bool)
 
 	// Always keep built-in scalars reachable
-	for _, name := range []string{"Int", "Float", "String", "Boolean", "ID"} {
+	for _, name := range builtInScalars {
 		reachable[name] = true
 	}
 
@@ -117,7 +190,7 @@ func removeUnusedTypes(schema *IntrospectionSchema) {
 
 	var kept []FullType
 	for _, t := range schema.Types {
-		if strings.HasPrefix(t.Name, "__") || reachable[t.Name] {
+		if strings.HasPrefix(t.Name, metaTypePrefix) || reachable[t.Name] {
 			kept = append(kept, t)
 		}
 	}
@@ -164,7 +237,7 @@ func walkType(name string, index map[string]*FullType, reachable map[string]bool
 // walkTypeInfo unwraps NON_NULL/LIST wrappers to find the named type, then walks it.
 func walkTypeInfo(ti TypeInfo, index map[string]*FullType, reachable map[string]bool) {
 	switch ti.Kind {
-	case "NON_NULL", "LIST":
+	case kindNonNull, kindList:
 		if ti.OfType != nil {
 			walkTypeInfo(*ti.OfType, index, reachable)
 		}
@@ -175,6 +248,9 @@ func walkTypeInfo(ti TypeInfo, index map[string]*FullType, reachable map[string]
 	}
 }
 
+// copySchema copies the Types and Directives slices so FilterSchema can
+// replace entries without mutating the caller's schema. Nested slices inside a
+// FullType are shared; filtering only ever reassigns them, never edits in place.
 func copySchema(s *IntrospectionSchema) *IntrospectionSchema {
 	cp := *s
 	cp.Types = make([]FullType, len(s.Types))
@@ -190,6 +266,7 @@ type matcher struct {
 	re    *regexp.Regexp
 }
 
+// matches reports whether name satisfies the regex, or equals the exact string.
 func (m matcher) matches(name string) bool {
 	if m.re != nil {
 		return m.re.MatchString(name)
@@ -197,37 +274,36 @@ func (m matcher) matches(name string) bool {
 	return m.exact == name
 }
 
+// regexMeta detects a filter entry that should be compiled as a regex rather
+// than compared as an exact field name.
 var regexMeta = regexp.MustCompile(`[\\.*+?^${}()|[\]]`)
 
 // compileMatchers turns filter entries into matchers. Plain strings become
 // exact matches; entries containing regex metacharacters are compiled as
-// anchored regexes (^pattern$).
-func compileMatchers(patterns []string) []matcher {
+// whole-name regexes, `^(?:pattern)$`. The group matters: anchoring
+// `todo|echo` without it gives `^todo|echo$`, which also keeps "todos". An
+// entry that is not a valid regex is an error naming it, never a silent
+// exact match that keeps nothing.
+func compileMatchers(patterns []string) ([]matcher, error) {
 	if len(patterns) == 0 {
-		return nil
+		return nil, nil
 	}
 	matchers := make([]matcher, 0, len(patterns))
 	for _, p := range patterns {
-		if regexMeta.MatchString(p) {
-			anchored := p
-			if !strings.HasPrefix(anchored, "^") {
-				anchored = "^" + anchored
-			}
-			if !strings.HasSuffix(anchored, "$") {
-				anchored = anchored + "$"
-			}
-			if re, err := regexp.Compile(anchored); err == nil {
-				matchers = append(matchers, matcher{re: re})
-			} else {
-				matchers = append(matchers, matcher{exact: p})
-			}
-		} else {
+		if !regexMeta.MatchString(p) {
 			matchers = append(matchers, matcher{exact: p})
+			continue
 		}
+		re, err := regexp.Compile("^(?:" + p + ")$")
+		if err != nil {
+			return nil, fmt.Errorf("invalid filter pattern %q: %w", p, err)
+		}
+		matchers = append(matchers, matcher{re: re})
 	}
-	return matchers
+	return matchers, nil
 }
 
+// matchesAny reports whether any matcher accepts name; false for no matchers.
 func matchesAny(name string, matchers []matcher) bool {
 	for _, m := range matchers {
 		if m.matches(name) {

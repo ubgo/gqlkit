@@ -1,8 +1,10 @@
 package clientgents
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/vektah/gqlparser/v2/ast"
@@ -89,19 +91,19 @@ func TestFieldTSType(t *testing.T) {
 	cases := []struct {
 		typ, field, want string
 	}{
-		{"User", "id", "string"},       // ID -> string
-		{"User", "count", "number"},    // Int -> number
-		{"User", "ratio", "number"},    // Float -> number
-		{"User", "active", "boolean"},  // Boolean -> boolean
-		{"User", "role", "Role"},       // enum -> name
-		{"User", "at", "DateTime"},     // custom scalar -> alias name
-		{"User", "ts", "timestamptz"},  // Hasura lowercase custom scalar -> name
-		{"User", "bestFriend", "User"}, // object -> name
-		{"User", "manager", "User"},    // nullable object -> name
-		{"User", "friends", "User[]"},  // [User!] -> User[]
-		{"User", "posts", "Post[]"},    // [Post!]! -> Post[]
-		{"User", "tags", "string[]"},   // [String!]! -> string[]
-		{"User", "meta", "Node"},       // interface -> name
+		{"User", "id", "string"},             // ID -> string
+		{"User", "count", "number"},          // Int -> number
+		{"User", "ratio", "number | null"},   // nullable Float -> number | null
+		{"User", "active", "boolean"},        // Boolean -> boolean
+		{"User", "role", "Role"},             // enum -> name
+		{"User", "at", "DateTime"},           // custom scalar -> alias name
+		{"User", "ts", "timestamptz | null"}, // Hasura lowercase custom scalar -> name
+		{"User", "bestFriend", "User"},       // object -> name
+		{"User", "manager", "User | null"},   // nullable object -> name | null
+		{"User", "friends", "User[] | null"}, // [User!] -> User[] | null
+		{"User", "posts", "Post[]"},          // [Post!]! -> Post[]
+		{"User", "tags", "string[]"},         // [String!]! -> string[]
+		{"User", "meta", "Node | null"},      // nullable interface -> name | null
 	}
 	for _, c := range cases {
 		if got := g.fieldTSType(fieldType(t, g, c.typ, c.field)); got != c.want {
@@ -131,114 +133,47 @@ scalar String
 type Thing { s: String! }
 type Query { thing: Thing }
 `)
-	// A user-declared `scalar String` is not a simple TS primitive in the map
-	// (BuiltInTSTypes maps "String"->"string", but gqlparser marks the redeclared
-	// scalar as a Scalar kind; the special-case renames it to GqlString).
-	got := g.fieldTSType(fieldType(t, g, "Thing", "s"))
-	if got != "string" && got != "GqlString" {
-		t.Errorf("fieldTSType(Thing.s) = %q, want string or GqlString", got)
+	// The redeclared scalar keeps the built-in "string" binding, which is
+	// simple TS text, so it is inlined; only its scalars/ alias is GqlString.
+	if got := g.fieldTSType(fieldType(t, g, "Thing", "s")); got != "string" {
+		t.Errorf("fieldTSType(Thing.s) = %q, want string", got)
+	}
+	if got := scalarAliasName("String"); got != "GqlString" {
+		t.Errorf("scalarAliasName(String) = %q, want GqlString", got)
 	}
 }
 
-// TestFieldTSTypeStr covers the optional/required declaration builder.
-func TestFieldTSTypeStr(t *testing.T) {
-	g := newTestGenerator(t, mappingSchema)
-	if got := g.fieldTSTypeStr("count", fieldType(t, g, "User", "count")); got != "count: number;" {
-		t.Errorf("fieldTSTypeStr(count) = %q", got)
-	}
-	if got := g.fieldTSTypeStr("manager", fieldType(t, g, "User", "manager")); got != "manager?: User;" {
-		t.Errorf("fieldTSTypeStr(manager) = %q", got)
-	}
-}
-
-// TestGraphQLToTSArgType pins operation-builder argument/return type mapping.
-// Unlike fieldTSType, scalars resolve through tsTypeMap.Get (unknown -> "any").
-func TestGraphQLToTSArgType(t *testing.T) {
+// TestFieldTSTypeOperationPositions pins the operation-argument/return
+// mapping, which shares fieldTSType with interface fields. An unbound custom
+// scalar renders as its scalars/ alias here too: a separate resolver once
+// rendered it as `any` while the import collector still imported the alias,
+// leaving an unused import in the operation file.
+func TestFieldTSTypeOperationPositions(t *testing.T) {
 	g := newTestGenerator(t, mappingSchema)
 	cases := []struct {
 		typ  *ast.Type
 		want string
 	}{
 		{namedType("Int", true), "number"},
-		{namedType("String", false), "string"},
+		{namedType("String", false), "string | null"},
 		{namedType("Role", true), "Role"},
-		{namedType("DateTime", false), "any"}, // custom scalar unmapped -> any
+		{namedType("DateTime", false), "DateTime | null"}, // unbound custom scalar -> alias
 		{namedType("User", true), "User"},
-		{namedType("Filter", false), "Filter"}, // input object
+		{namedType("Filter", false), "Filter | null"}, // input object
 		{listType(namedType("Role", true), true), "Role[]"},
-		{listType(namedType("Int", true), false), "number[]"},
+		{listType(namedType("Int", true), false), "number[] | null"},
+		{listType(namedType("Int", false), true), "(number | null)[]"},
 		{nil, "any"},
 	}
 	for _, c := range cases {
-		if got := g.graphQLToTSArgType(c.typ); got != c.want {
-			t.Errorf("graphQLToTSArgType(%s) = %q, want %q", formatGraphQLType(c.typ), got, c.want)
+		if got := g.fieldTSType(c.typ); got != c.want {
+			t.Errorf("fieldTSType(%s) = %q, want %q", formatGraphQLType(c.typ), got, c.want)
 		}
 	}
 }
 
-// TestGraphQLToTSType covers the resolver used for nullable detection.
-func TestGraphQLToTSType(t *testing.T) {
-	g := newTestGenerator(t, mappingSchema)
-	// nil -> ("any", true)
-	if ts, opt := g.graphQLToTSType(nil); ts != "any" || !opt {
-		t.Errorf("graphQLToTSType(nil) = (%q,%v), want (any,true)", ts, opt)
-	}
-	// NonNull scalar -> not optional; custom binding wins in namedTypeToTS
-	if ts, opt := g.graphQLToTSType(namedType("Int", true)); ts != "number" || opt {
-		t.Errorf("graphQLToTSType(Int!) = (%q,%v), want (number,false)", ts, opt)
-	}
-	// nullable list of objects -> "User[]", optional
-	if ts, opt := g.graphQLToTSType(listType(namedType("User", true), false)); ts != "User[]" || !opt {
-		t.Errorf("graphQLToTSType([User!]) = (%q,%v), want (User[],true)", ts, opt)
-	}
-	// unknown name -> "any"
-	if ts, _ := g.graphQLToTSType(namedType("Bogus", true)); ts != "any" {
-		t.Errorf("graphQLToTSType(Bogus) = %q, want any", ts)
-	}
-}
-
-// TestNamedTypeToTS pins the named-type resolver across all kinds.
-func TestNamedTypeToTS(t *testing.T) {
-	g := newTestGenerator(t, mappingSchema)
-	cases := []struct{ name, want string }{
-		{"Int", "number"},        // built-in binding
-		{"DateTime", "DateTime"}, // custom scalar -> its own name
-		{"Role", "Role"},         // enum
-		{"User", "User"},         // object
-		{"Node", "Node"},         // interface
-		{"Filter", "Filter"},     // input object
-		{"Missing", "any"},       // unknown
-	}
-	for _, c := range cases {
-		if got := g.namedTypeToTS(c.name); got != c.want {
-			t.Errorf("namedTypeToTS(%q) = %q, want %q", c.name, got, c.want)
-		}
-	}
-}
-
-// TestIsCustomScalarRef pins the custom-scalar discriminator (only non-simple
-// scalar bindings count).
-func TestIsCustomScalarRef(t *testing.T) {
-	g := newTestGenerator(t, mappingSchema)
-	if !g.isCustomScalarRef(namedType("DateTime", true)) {
-		t.Error("DateTime should be a custom scalar ref")
-	}
-	if !g.isCustomScalarRef(listType(namedType("timestamptz", true), true)) {
-		t.Error("[timestamptz!]! should unwrap to a custom scalar ref")
-	}
-	if g.isCustomScalarRef(namedType("Int", true)) {
-		t.Error("Int maps to a simple TS type, not a custom scalar ref")
-	}
-	if g.isCustomScalarRef(namedType("User", true)) {
-		t.Error("User is an object, not a scalar ref")
-	}
-	if g.isCustomScalarRef(nil) {
-		t.Error("nil is not a custom scalar ref")
-	}
-}
-
-// TestIsObjectType pins the object/interface discriminator.
-func TestIsObjectType(t *testing.T) {
+// TestIsCompositeType pins the composite-type discriminator (object, interface, union).
+func TestIsCompositeType(t *testing.T) {
 	g := newTestGenerator(t, mappingSchema)
 	cases := []struct {
 		t    *ast.Type
@@ -254,8 +189,8 @@ func TestIsObjectType(t *testing.T) {
 		{nil, false},                                    // nil / empty name
 	}
 	for i, c := range cases {
-		if got := isObjectType(g.schema, c.t); got != c.want {
-			t.Errorf("case %d: isObjectType = %v, want %v", i, got, c.want)
+		if got := isCompositeType(g.schema, c.t); got != c.want {
+			t.Errorf("case %d: isCompositeType = %v, want %v", i, got, c.want)
 		}
 	}
 }
@@ -436,11 +371,59 @@ func TestNewErrors(t *testing.T) {
 	}
 }
 
-// TestIsGraphQLBuiltIn documents the always-false behavior (no scalars skipped).
-func TestIsGraphQLBuiltIn(t *testing.T) {
-	for _, n := range []string{"String", "Int", "DateTime", "Boolean"} {
-		if isGraphQLBuiltIn(n) {
-			t.Errorf("isGraphQLBuiltIn(%q) = true, want false", n)
+// TestBindingCodecValidate pins the codec-field rules: a codec needs its
+// module, a module needs a codec, and names must be plain identifiers.
+func TestBindingCodecValidate(t *testing.T) {
+	cases := []struct {
+		name    string
+		b       TSBinding
+		wantErr error
+	}{
+		{"no codec", TSBinding{Type: "string"}, nil},
+		{"empty type", TSBinding{}, ErrBindingTypeRequired},
+		{"blank type", TSBinding{Type: "  "}, ErrBindingTypeRequired},
+		{"decode only", TSBinding{Type: "Date", Decode: "toDate", CodecImport: "../codecs"}, nil},
+		{"both", TSBinding{Type: "DateTime", Import: "luxon", Decode: "fromISO", Encode: "toISO", CodecImport: "../codecs"}, nil},
+		{"decode without module", TSBinding{Type: "Date", Decode: "toDate"}, ErrCodecImportRequired},
+		{"module without codec", TSBinding{Type: "Date", CodecImport: "../codecs"}, ErrCodecWithoutFunctions},
+		{"dotted name", TSBinding{Type: "Date", Decode: "DateTime.fromISO", CodecImport: "luxon"}, ErrCodecNameInvalid},
+		{"expression", TSBinding{Type: "Date", Encode: "x => x", CodecImport: "../c"}, ErrCodecNameInvalid},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if err := c.b.Validate("S"); !errors.Is(err, c.wantErr) {
+				t.Errorf("Validate() = %v, want %v", err, c.wantErr)
+			}
+		})
+	}
+}
+
+// TestLoadClientConfigRejectsGoFormBinding pins the empty-type bug: a
+// Go-generator binding in the TS config used to generate `export type X = ;`
+// and exit 0. It must fail on load, naming the scalar and the TS form.
+func TestLoadClientConfigRejectsGoFormBinding(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.jsonc")
+	if err := os.WriteFile(p, []byte(`{ "bindings": { "DateTime": { "model": "time.Time" } } }`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := loadClientConfig(p)
+	if !errors.Is(err, ErrBindingTypeRequired) {
+		t.Fatalf("loadClientConfig = %v, want ErrBindingTypeRequired", err)
+	}
+	for _, want := range []string{`"DateTime"`, `"type": "DateTime", "import": "luxon"`, `{"model": ...}`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %s", err, want)
 		}
+	}
+}
+
+// TestLoadClientConfigRejectsBadCodec checks the rule is enforced on load.
+func TestLoadClientConfigRejectsBadCodec(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.jsonc")
+	if err := os.WriteFile(p, []byte(`{ "bindings": { "DateTime": { "type": "Date", "decode": "toDate" } } }`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadClientConfig(p); !errors.Is(err, ErrCodecImportRequired) {
+		t.Errorf("loadClientConfig = %v, want ErrCodecImportRequired", err)
 	}
 }

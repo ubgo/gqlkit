@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "Done: docs/go/{client,selecting-fields,arguments-and-inputs,types-and-scalars,errors,batching,low-level-builder}.md; example-go-mockapi/cmd/{client-options,selecting-fields,enums-and-inputs,errors,batch-mutations,low-level} each with README + main_test.go; internal/{mockapi,mockapitest,wiretap}; edits to docs/getting-started-go.md and example-go-mockapi/README.md. Library bugs reported to integrator: RawQuery empty, non-200 not GraphQLErrors, input omitempty slices/null, interface root decode, detached type doc comments.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-13T09:35:50.329368000Z",
+  "created_at": "2026-10-13T08:55:02.128430000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a13478eaf07693860d5e8947ab1879",
+  "mission_id": null,
+  "plan_id": null,
+  "priority": "medium",
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "started_at": "2026-10-13T08:55:02.237902000Z",
+  "status": "done",
+  "tasklist_id": "tlt_01a1346fcb3c7845a13f840f3280f819",
+  "title": "Docs batch 2: Go guides (docs/go/*) + example-go-mockapi example programs",
+  "updated_at": "2026-10-13T09:35:50.329381000Z"
+}

@@ -14,28 +14,51 @@ import (
 // Config holds all settings needed to run the Go SDK generator, typically
 // populated from CLI flags. SchemaPath and ConfigPath are required.
 type Config struct {
-	// SchemaPath is the path to the GraphQL SDL file
+	// SchemaPath is the path to the GraphQL SDL file. Required.
 	SchemaPath string
-	// OutputDir is the directory where the generated SDK will be written
+	// OutputDir is the directory the generated SDK is written to. Defaults
+	// to "./sdk".
 	OutputDir string
-	// PackageName is the Go package name for the generated SDK
+	// PackageName is the SDK's root package name. Defaults to "sdk". If it
+	// contains "/" and Package is empty, it is treated as an import path:
+	// Package takes the whole value and PackageName its last element.
 	PackageName string
-	// ModulePath is the Go module path for the generated SDK
+	// ModulePath is the import path of the generated SDK root (the CLI's
+	// --module). When set and Package is empty, it becomes Package.
 	ModulePath string
 
-	// Config is the configuration for the generator
+	// ConfigPath is the optional config.jsonc holding scalar bindings. An
+	// empty path or a missing file means "no bindings".
 	ConfigPath string
 
-	// Package is the Go package name for the generated SDK
+	// Package is the import path every generated cross-package import is
+	// rooted at ("<Package>/types", "<Package>/builder", ...). Resolution
+	// order in Validate: explicit value, then ModulePath, then a "/"-bearing
+	// PackageName, then the nearest go.mod at or above the working directory
+	// + OutputDir. It is never empty after a successful Validate.
 	Package string
+
+	// Prune, after a successful generation, deletes files under OutputDir
+	// that carry the gqlkit banner (writer.BannerLine) as their first line
+	// but were not written by this run — leftovers of removed types or
+	// operations. Files without the banner are never touched. Off by default.
+	Prune bool
+	// PruneDryRun makes Prune only report what it would delete. Validate
+	// rejects it without Prune, so a dry run is never silently a no-op.
+	PruneDryRun bool
 }
 
 // Validate checks that required fields are set and applies defaults for
 // optional fields (OutputDir defaults to "./sdk", PackageName defaults to "sdk").
-// When Package is empty, it is auto-detected from go.mod + OutputDir.
+// When Package is empty, it is derived from ModulePath, a "/"-bearing
+// PackageName, or the nearest go.mod; if none applies it returns
+// ErrPackageUndetermined (defaults are still applied).
 func (c *Config) Validate() error {
 	if c.SchemaPath == "" {
 		return ErrSchemaPathRequired
+	}
+	if c.PruneDryRun && !c.Prune {
+		return ErrDryRunWithoutPrune
 	}
 	if c.OutputDir == "" {
 		c.OutputDir = "./sdk"
@@ -64,24 +87,62 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	// Auto-detect from go.mod if still empty
+	// Auto-detect from the enclosing Go module if still empty.
 	if c.Package == "" {
-		c.Package = detectPackagePath(c.OutputDir)
+		pkg, err := detectPackagePath(c.OutputDir)
+		if err != nil {
+			return err
+		}
+		c.Package = pkg
 	}
 	return nil
 }
 
-// detectPackagePath reads the module path from go.mod in the current directory
-// and appends the output directory name to form the full import path for the
-// generated SDK (e.g., "github.com/user/myproject/sdk").
-func detectPackagePath(outputDir string) string {
-	mod := readModulePath("go.mod")
-	if mod == "" {
-		return ""
+// detectPackagePath derives the SDK import path from the nearest go.mod at or
+// above the working directory: its module path plus OutputDir relative to the
+// module root (e.g. "github.com/user/proj" + "sdk" → "github.com/user/proj/sdk",
+// or "…/proj/internal/sdk" when run from a sub-directory).
+//
+// Returns ErrPackageUndetermined when there is no go.mod up the tree, or when
+// OutputDir lies outside that module — guessing would emit imports such as
+// "/types" that cannot compile, which used to happen silently with exit 0.
+func detectPackagePath(outputDir string) (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrPackageUndetermined, err)
 	}
-	// Clean the output dir: "./sdk" -> "sdk", "foo/bar" -> "foo/bar"
-	rel := strings.TrimPrefix(filepath.ToSlash(outputDir), "./")
-	return mod + "/" + rel
+	root, mod := findModule(cwd)
+	if mod == "" {
+		return "", fmt.Errorf("%w: no go.mod found in %s or any parent directory", ErrPackageUndetermined, cwd)
+	}
+	out, err := filepath.Abs(outputDir)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrPackageUndetermined, err)
+	}
+	rel, err := filepath.Rel(root, out)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("%w: output %s is outside module %s (%s)", ErrPackageUndetermined, out, mod, root)
+	}
+	if rel == "." {
+		return mod, nil
+	}
+	return mod + "/" + filepath.ToSlash(rel), nil
+}
+
+// findModule walks from dir up to the filesystem root and returns the
+// directory and module path of the first go.mod that declares a module, or
+// ("", "") when none does.
+func findModule(dir string) (string, string) {
+	for {
+		if mod := readModulePath(filepath.Join(dir, "go.mod")); mod != "" {
+			return dir, mod
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", ""
+		}
+		dir = parent
+	}
 }
 
 // readModulePath reads the "module" line from a go.mod file.

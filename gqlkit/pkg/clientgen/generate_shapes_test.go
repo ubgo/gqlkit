@@ -218,7 +218,7 @@ func TestGenerateLowercaseAndFederationNamesCompile(t *testing.T) {
 
 // mutationSchema exercises the mutation code path: a mutation root, an input
 // object argument, an object return with a selectable body, a lowercase input
-// field, and a scalar return — enough to cover generateMutationRootFile and the
+// field, and a scalar return — enough to cover generateRootFile for mutations and the
 // mutation builder generation end to end.
 const mutationSchema = `
 scalar timestamptz

@@ -14,6 +14,11 @@ import (
 // GraphQLClient is the interface that the generated SDK expects consumers to
 // implement (or satisfy via graphqlclient.Client). It sends a single GraphQL
 // request and unmarshals the JSON response into the supplied target.
+//
+// variables and response are untyped by necessity: variable values are
+// arbitrary JSON-encodable argument values chosen by generated setters, and
+// response is whatever struct pointer the generated Execute declares. The
+// generated builders keep both typed at their own surface.
 type GraphQLClient interface {
 	Execute(ctx context.Context, query string, variables map[string]interface{}, response any) error
 }
@@ -22,33 +27,50 @@ type GraphQLClient interface {
 // Scalar fields are stored in `fields`; nested object selections are stored in
 // `children`, forming a recursive tree that mirrors the GraphQL selection set.
 type FieldSelection struct {
-	fields   []string                   // leaf/scalar field names
-	children map[string]*FieldSelection // nested object selections keyed by field name
+	fields    []string                   // leaf/scalar field names
+	children  map[string]*FieldSelection // nested object selections keyed by field name
+	fragments map[string]*FieldSelection // inline fragments keyed by type condition
 }
 
-// NewFieldSelection creates a new FieldSelection
+// NewFieldSelection returns an empty selection. An empty selection renders
+// as "" from Build, which callers use to omit the `{ ... }` block entirely.
 func NewFieldSelection() *FieldSelection {
 	return &FieldSelection{
-		fields:   make([]string, 0),
-		children: make(map[string]*FieldSelection),
+		fields:    make([]string, 0),
+		children:  make(map[string]*FieldSelection),
+		fragments: make(map[string]*FieldSelection),
 	}
 }
 
-// AddField adds a scalar field to the selection
+// AddField appends a leaf field. Order is preserved and duplicates are kept
+// (GraphQL merges identical selections, so a repeat is harmless).
 func (fs *FieldSelection) AddField(name string) {
 	fs.fields = append(fs.fields, name)
 }
 
-// AddChild adds a nested field selection
+// AddChild sets the nested selection for an object field. A second call with
+// the same name REPLACES the earlier child (last wins). A child with nothing
+// selected is dropped by Build rather than rendered as an invalid `{ }`.
 func (fs *FieldSelection) AddChild(name string, child *FieldSelection) {
 	fs.children[name] = child
 }
 
+// AddFragment sets an inline fragment `... on <typeName> { ... }`, used to
+// select type-specific fields on an interface or union. Same replace and
+// empty-drop semantics as AddChild.
+func (fs *FieldSelection) AddFragment(typeName string, child *FieldSelection) {
+	if fs.fragments == nil { // a FieldSelection built without the constructor
+		fs.fragments = make(map[string]*FieldSelection)
+	}
+	fs.fragments[typeName] = child
+}
+
 // Build recursively renders the field selection into a GraphQL selection set
-// string. Each level is indented by `indent` levels of two spaces. Child keys
-// are sorted alphabetically to ensure deterministic output across runs.
+// string: leaf fields in insertion order, then children sorted by field name,
+// then inline fragments sorted by type name. Each level is indented by
+// `indent` levels of two spaces; sorting keeps output deterministic.
 func (fs *FieldSelection) Build(indent int) string {
-	if len(fs.fields) == 0 && len(fs.children) == 0 {
+	if len(fs.fields) == 0 && len(fs.children) == 0 && len(fs.fragments) == 0 {
 		return ""
 	}
 
@@ -67,16 +89,32 @@ func (fs *FieldSelection) Build(indent int) string {
 	sort.Strings(childKeys)
 
 	for _, name := range childKeys {
-		child := fs.children[name]
-		childStr := child.Build(indent + 1)
-		if childStr != "" {
-			sb.WriteString(prefix + name + " {\n")
-			sb.WriteString(childStr)
-			sb.WriteString(prefix + "}\n")
-		}
+		writeBlock(&sb, prefix, name, fs.children[name], indent)
+	}
+
+	// Inline fragments after plain fields and children, sorted by type name.
+	fragKeys := make([]string, 0, len(fs.fragments))
+	for k := range fs.fragments {
+		fragKeys = append(fragKeys, k)
+	}
+	sort.Strings(fragKeys)
+	for _, typeName := range fragKeys {
+		writeBlock(&sb, prefix, "... on "+typeName, fs.fragments[typeName], indent)
 	}
 
 	return sb.String()
+}
+
+// writeBlock renders `<head> {\n<child>}\n` at prefix, or nothing when the
+// child selects nothing (an empty `{ }` block is invalid GraphQL).
+func writeBlock(sb *strings.Builder, prefix, head string, child *FieldSelection, indent int) {
+	childStr := child.Build(indent + 1)
+	if childStr == "" {
+		return
+	}
+	sb.WriteString(prefix + head + " {\n")
+	sb.WriteString(childStr)
+	sb.WriteString(prefix + "}\n")
 }
 
 // BaseBuilder provides the shared state and logic for every generated operation
@@ -94,7 +132,10 @@ type BaseBuilder struct {
 	selection *FieldSelection        // selected fields for the response
 }
 
-// NewBaseBuilder creates a new BaseBuilder
+// NewBaseBuilder returns a builder for one root field. opType is the GraphQL
+// keyword ("query" or "mutation") written verbatim as the document's first
+// token and into OpFragment.OpType; opName is the operation name; fieldName is
+// the root field selected.
 func NewBaseBuilder(client GraphQLClient, opType, opName, fieldName string) *BaseBuilder {
 	return &BaseBuilder{
 		client:    client,
@@ -114,12 +155,15 @@ func (b *BaseBuilder) SetArg(name string, value interface{}, graphqlType string)
 	b.argTypes[name] = graphqlType
 }
 
-// GetSelection returns the field selection
+// GetSelection returns the root selection tree (mutable; selectors write
+// into it).
 func (b *BaseBuilder) GetSelection() *FieldSelection {
 	return b.selection
 }
 
-// GetClient returns the client
+// GetClient returns the transport the builder was created with. batch uses
+// it (through the clientHolder interface) to find a client for a merged
+// request.
 func (b *BaseBuilder) GetClient() GraphQLClient {
 	return b.client
 }
@@ -168,7 +212,9 @@ func (b *BaseBuilder) BuildQuery() string {
 	return sb.String()
 }
 
-// GetVariables returns the variables map
+// GetVariables returns the argument values keyed by GraphQL argument name —
+// the live map, not a copy, matching the `$name` variables BuildQuery
+// declares.
 func (b *BaseBuilder) GetVariables() map[string]interface{} {
 	return b.args
 }

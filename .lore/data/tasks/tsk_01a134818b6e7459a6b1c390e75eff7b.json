@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "Owner decision 2026-10-13, clientgents. See team-lead brief.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-13T09:11:55.923589000Z",
+  "created_at": "2026-10-13T09:04:27.502283000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a134818b6e7459a6b1c390e75eff7b",
+  "mission_id": null,
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "started_at": "2026-10-13T09:09:04.219990000Z",
+  "status": "done",
+  "tasklist_id": "tlt_01a1346fcb3c7845a13f840f3280f819",
+  "title": "Full nullability in generated TS types",
+  "updated_at": "2026-10-13T09:11:55.923603000Z"
+}

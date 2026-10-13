@@ -12,10 +12,8 @@ import (
 type SchemaScalar struct {
 	Name        string
 	Description string
-	// GoType       string
-	IsBuiltIn bool
-	GoType    string
-	// TypeMapEntry typegql.TypeMapEntry
+	IsBuiltIn   bool
+	GoType      string
 }
 
 // SchemaScalarMap maps GraphQL scalar names to their SchemaScalar metadata.
@@ -33,6 +31,10 @@ var builtInScalars = map[string]bool{
 }
 
 // ScalarData bundles the scalar map and required imports for template rendering.
+//
+// Invariant: Imports is sorted and de-duplicated. Several scalars commonly
+// bind to the same package (Time and DateTime both to time.Time) and a
+// repeated import spec is a compile error ("time redeclared").
 type ScalarData struct {
 	SchemaScalarMap SchemaScalarMap
 	Imports         []string
@@ -43,7 +45,7 @@ type ScalarData struct {
 // the necessary Go import paths. Returns the scalar map and import list.
 func buildSchemaScalarMap(schema *ast.Schema, bindings typegql.TypeMap) ScalarData {
 	schemaScalarMap := make(SchemaScalarMap)
-	imports := make([]string, 0)
+	importSet := make(map[string]bool)
 
 	for _, scalar := range schema.Types {
 		if scalar.Kind != ast.Scalar {
@@ -64,11 +66,11 @@ func buildSchemaScalarMap(schema *ast.Schema, bindings typegql.TypeMap) ScalarDa
 		}
 
 		if typeMapEntry.GoImport != "" {
-			imports = append(imports, typeMapEntry.GoImport)
+			importSet[typeMapEntry.GoImport] = true
 		}
 	}
 	return ScalarData{
 		SchemaScalarMap: schemaScalarMap,
-		Imports:         imports,
+		Imports:         sortedImports(importSet),
 	}
 }

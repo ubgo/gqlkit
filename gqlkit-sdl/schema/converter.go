@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -28,7 +29,7 @@ func ConvertToSDL(schema *IntrospectionSchema) string {
 
 	// Write each user-defined type, skipping introspection meta-types (e.g., __Type, __Field).
 	for _, t := range types {
-		if strings.HasPrefix(t.Name, "__") {
+		if strings.HasPrefix(t.Name, metaTypePrefix) {
 			continue
 		}
 
@@ -51,9 +52,9 @@ func ConvertToSDL(schema *IntrospectionSchema) string {
 // "Query", "Mutation", "Subscription"). If all root types use the default names,
 // the schema block is omitted since GraphQL infers them by convention.
 func writeSchemaDefinition(sb *strings.Builder, schema *IntrospectionSchema) {
-	hasCustomRootTypes := (schema.QueryType != nil && schema.QueryType.Name != "Query") ||
-		(schema.MutationType != nil && schema.MutationType.Name != "Mutation") ||
-		(schema.SubscriptionType != nil && schema.SubscriptionType.Name != "Subscription")
+	hasCustomRootTypes := (schema.QueryType != nil && schema.QueryType.Name != defaultQueryTypeName) ||
+		(schema.MutationType != nil && schema.MutationType.Name != defaultMutationTypeName) ||
+		(schema.SubscriptionType != nil && schema.SubscriptionType.Name != defaultSubscriptionTypeName)
 
 	if hasCustomRootTypes {
 		sb.WriteString("schema {\n")
@@ -73,17 +74,17 @@ func writeSchemaDefinition(sb *strings.Builder, schema *IntrospectionSchema) {
 // writeType dispatches to the appropriate writer based on the GraphQL type kind.
 func writeType(sb *strings.Builder, t FullType) {
 	switch t.Kind {
-	case "SCALAR":
+	case kindScalar:
 		writeScalar(sb, t)
-	case "OBJECT":
+	case kindObject:
 		writeObject(sb, t)
-	case "INTERFACE":
+	case kindInterface:
 		writeInterface(sb, t)
-	case "UNION":
+	case kindUnion:
 		writeUnion(sb, t)
-	case "ENUM":
+	case kindEnum:
 		writeEnum(sb, t)
-	case "INPUT_OBJECT":
+	case kindInputObject:
 		writeInputObject(sb, t)
 	}
 }
@@ -171,7 +172,7 @@ func writeEnum(sb *strings.Builder, t FullType) {
 		// Append @deprecated directive with optional reason.
 		if ev.IsDeprecated {
 			if ev.DeprecationReason != nil && *ev.DeprecationReason != "" {
-				fmt.Fprintf(sb, " @deprecated(reason: %q)", *ev.DeprecationReason)
+				fmt.Fprintf(sb, " @deprecated(reason: \"%s\")", escapeString(*ev.DeprecationReason))
 			} else {
 				sb.WriteString(" @deprecated")
 			}
@@ -218,7 +219,7 @@ func writeFields(sb *strings.Builder, fields []Field) {
 		// Append @deprecated directive with optional reason.
 		if f.IsDeprecated {
 			if f.DeprecationReason != nil && *f.DeprecationReason != "" {
-				fmt.Fprintf(sb, " @deprecated(reason: %q)", *f.DeprecationReason)
+				fmt.Fprintf(sb, " @deprecated(reason: \"%s\")", escapeString(*f.DeprecationReason))
 			} else {
 				sb.WriteString(" @deprecated")
 			}
@@ -289,6 +290,13 @@ func writeDirective(sb *strings.Builder, d Directive) {
 	sb.WriteString("\n\n")
 }
 
+// blockQuote delimits a GraphQL block string; escapedBlockQuote is how the
+// spec writes that sequence inside one.
+const (
+	blockQuote        = `"""`
+	escapedBlockQuote = `\"""`
+)
+
 // writeDescription writes a GraphQL description string above a definition.
 // Single-line descriptions use the `"text"` format; multi-line descriptions
 // use the triple-quote `"""..."""` block format. The indent parameter controls
@@ -299,10 +307,17 @@ func writeDescription(sb *strings.Builder, description *string, indent string) {
 	}
 
 	desc := *description
-	if strings.Contains(desc, "\n") {
+	// A lone carriage return is a line terminator too: inside a "..." literal
+	// it would make the SDL unparseable, so it forces the block format.
+	if strings.ContainsAny(desc, "\r\n") {
 		// Multi-line block string format.
 		fmt.Fprintf(sb, "%s\"\"\"\n", indent)
-		lines := strings.Split(desc, "\n")
+		// A literal """ inside a block string would end it early and leave
+		// the rest of the description as invalid SDL; the spec escape is \""".
+		// Line endings are normalised first so every line gets the indent;
+		// a bare \r left inside a line would split it without one.
+		normalized := strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(desc)
+		lines := strings.Split(strings.ReplaceAll(normalized, blockQuote, escapedBlockQuote), "\n")
 		for _, line := range lines {
 			fmt.Fprintf(sb, "%s%s\n", indent, line)
 		}
@@ -318,11 +333,11 @@ func writeDescription(sb *strings.Builder, description *string, indent string) {
 // their name directly. Example: NON_NULL(LIST(NON_NULL(String))) -> "[String!]!"
 func formatType(t TypeInfo) string {
 	switch t.Kind {
-	case "NON_NULL":
+	case kindNonNull:
 		if t.OfType != nil {
 			return formatType(*t.OfType) + "!"
 		}
-	case "LIST":
+	case kindList:
 		if t.OfType != nil {
 			return "[" + formatType(*t.OfType) + "]"
 		}
@@ -334,44 +349,69 @@ func formatType(t TypeInfo) string {
 	return ""
 }
 
-// escapeString escapes backslashes and double quotes in a string for use
-// inside a GraphQL single-line string literal.
+// escapeString escapes s for use inside a GraphQL single-line string literal
+// ("..."), using only the escapes the spec defines: \" \\ \b \f \n \r \t
+// and \uXXXX for any other control character. Everything else, including
+// non-ASCII text, is written as-is (SDL is UTF-8). Go's %q is not a
+// substitute: it emits \x.. and \a escapes that GraphQL parsers reject.
 func escapeString(s string) string {
-	s = strings.ReplaceAll(s, "\\", "\\\\")
-	s = strings.ReplaceAll(s, "\"", "\\\"")
-	return s
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		switch r {
+		case '"':
+			b.WriteString(`\"`)
+		case '\\':
+			b.WriteString(`\\`)
+		case '\b':
+			b.WriteString(`\b`)
+		case '\f':
+			b.WriteString(`\f`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		default:
+			if r < firstPrintableASCII || r == asciiDelete {
+				fmt.Fprintf(&b, `\u%04X`, r)
+			} else {
+				b.WriteRune(r)
+			}
+		}
+	}
+	return b.String()
 }
 
-// isBuiltInScalar returns true if the given type name is one of the five
-// built-in GraphQL scalar types (Int, Float, String, Boolean, ID) that
-// should not be emitted in SDL output.
+// Control-character bounds for escapeString: code points below
+// firstPrintableASCII (C0 controls) and asciiDelete are written as \uXXXX.
+const (
+	firstPrintableASCII = 0x20
+	asciiDelete         = 0x7F
+)
+
+// isBuiltInScalar reports whether name is one of the five built-in GraphQL
+// scalars (see builtInScalars), which are implicit and never declared in SDL.
 func isBuiltInScalar(name string) bool {
-	builtInScalars := map[string]bool{
-		"Int":     true,
-		"Float":   true,
-		"String":  true,
-		"Boolean": true,
-		"ID":      true,
-	}
-	return builtInScalars[name]
+	return slices.Contains(builtInScalars, name)
 }
 
-// isBuiltInDirective returns true if the given directive name is one of the
-// standard built-in GraphQL directives that should not be emitted in SDL output.
+// isBuiltInDirective reports whether name is a spec-defined directive (see
+// builtInDirectives), which every server declares and SDL must not redefine.
 func isBuiltInDirective(name string) bool {
-	builtInDirectives := map[string]bool{
-		"skip":        true,
-		"include":     true,
-		"deprecated":  true,
-		"specifiedBy": true,
-	}
-	return builtInDirectives[name]
+	return slices.Contains(builtInDirectives, name)
 }
 
-// SaveToFile writes the given SDL string to a file at the specified path
-// with 0644 permissions. This is the final step in the introspection-to-SDL pipeline.
+// outputFileMode is the permission for written schema files: world-readable,
+// owner-writable, because a schema is meant to be committed and shared.
+const outputFileMode os.FileMode = 0o644
+
+// SaveToFile writes the given SDL string to a file at the specified path,
+// replacing any existing file. This is the final step in the
+// introspection-to-SDL pipeline.
 func SaveToFile(sdl string, filepath string) error {
-	return os.WriteFile(filepath, []byte(sdl), 0644)
+	return os.WriteFile(filepath, []byte(sdl), outputFileMode)
 }
 
 // SaveAsJSON marshals the introspection schema as pretty-printed JSON and
@@ -388,5 +428,5 @@ func SaveAsJSON(schema *IntrospectionSchema, filepath string) error {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
 
-	return os.WriteFile(filepath, data, 0644)
+	return os.WriteFile(filepath, data, outputFileMode)
 }

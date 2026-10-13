@@ -23,7 +23,7 @@ Free-form key/value metadata attached to an entity.
 """
 scalar Metadata
 
-type Todo {
+type Todo implements Node {
   id: ID!
   text: String!
   done: Boolean!
@@ -32,9 +32,14 @@ type Todo {
   user: User!
   createdAt: DateTime!
   metadata: Metadata
+  """
+  Self-reference: the todo this one belongs under, or null for a top-level
+  todo. Seed todo "2" has todo "1" as its parent.
+  """
+  parent: Todo
 }
 
-type User {
+type User implements Node {
   id: ID!
   name: String!
   email: String
@@ -125,6 +130,27 @@ type Query {
 
   # Returns arbitrary JSON with server runtime info.
   serverInfo: JSON!
+
+  """
+  Always fails: resolves to null and adds a GraphQL error carrying
+  extensions.code. Batch it beside a good field to see partial data.
+  Defaults: message "fail called", code "MOCK_FAILURE".
+  """
+  fail(message: String, code: String): String
+
+  """
+  Echoes the named HTTP request header (case-insensitive), or null when the
+  request did not send it. requestHeader(name: "Authorization") shows the
+  auth header a client sent.
+  """
+  requestHeader(name: String!): String
+
+  """
+  Relay-style lookup by typed ID "<Type>:<id>", e.g. "Todo:1" or "User:2"
+  (todo and user IDs overlap, so a bare id would be ambiguous). Null when
+  the type is unknown or nothing has that id.
+  """
+  node(id: ID!): Node
 }
 
 type Mutation {

@@ -1,6 +1,7 @@
 go 1.25.5
 
 use (
+	./example-cli/programmatic
 	./example-go-chat
 	./example-go-mockapi
 	./example-ts

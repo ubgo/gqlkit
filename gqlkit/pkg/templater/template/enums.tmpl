@@ -4,7 +4,7 @@
 {{ range .Enums }}
 {{- $enumName := .Name }}
 {{- if .Description }}
-{{ formatDesc .Name .Description }}{{ else }}
+{{ trimSpace (formatDesc .Name .Description) }}{{ else }}
 // {{ .Name }} is a GraphQL enum type
 {{- end }}
 type {{ .Name }} string
@@ -21,7 +21,7 @@ const (
 	{{- end }}
 	{{- end }}
 	{{- end }}
-	{{ $enumName }}{{ pascalCase .Name }} {{ $enumName }} = "{{ .Name }}"
+	{{ .GoName }} {{ $enumName }} = "{{ .Name }}"
 {{- end }}
 )
 

@@ -1,0 +1,22 @@
+{
+  "_table": "rules",
+  "_v": 1,
+  "activation": "always",
+  "applies_to_description": null,
+  "archived_at": null,
+  "body": "Generator and runtime tests must be input-space matrices run end to end, never snapshots of current output. For every type-mapping, selector, builder or batch change: combine the dimensions (GraphQL kind x nullability x list depth x binding shape x position x odd names such as reserved words and case-only clashes), generate a real SDK, compile it under strict settings (tsc --strict --noUnusedLocals across commonjs/bundler/nodenext; go build + vet), and run it against mockapi via task examples:test. A test that asserts whatever the generator emits today is a bug magnet: one such test pinned unbound scalars to any, and line coverage hid issue #5 (union binding inside a list) because the line ran without the combination. Why: on 2026-10-13 a docs pass that ran every feature against a live server surfaced 30+ bugs (unusable unions in Go and TS, 422 errors not typed, RawQuery empty, TS null typing, mock-server races) that the existing suite never exercised.",
+  "confidence": null,
+  "created_at": "2026-10-13T10:41:32.103679000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "globs": null,
+  "id": "rul_01a134da6bc77b0085bd209f60b9c42c",
+  "last_validated_at": null,
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "severity": "must",
+  "source_kind": "manual",
+  "source_ref": null,
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "updated_at": "2026-10-13T10:41:32.103716000Z"
+}

@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "Learning path + index in docs/README.md, fix wrong README/llms.txt claims, re-point features.md, review docs/choosing, fill gqlkit/gqlkit-ts/gqlkit-sdl READMEs, CONTRIBUTING additions, re-measure gap list.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-13T09:48:29.814760000Z",
+  "created_at": "2026-10-13T09:37:11.813233000Z",
+  "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a1349f84857395a55c9c3d3cf13f06",
+  "mission_id": null,
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "repo_id": null,
+  "started_at": "2026-10-13T09:37:14.336313000Z",
+  "status": "done",
+  "tasklist_id": "tlt_01a1346fcb3c7845a13f840f3280f819",
+  "title": "Docs batch 3: structure (docs index, root README, llms.txt, features.md, choosing, module READMEs)",
+  "updated_at": "2026-10-13T09:48:29.814762000Z"
+}

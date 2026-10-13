@@ -21,36 +21,32 @@ import (
 //go:embed template/*
 var templateDir embed.FS
 
-// var templateFileNames = []string{
-// 	"scalars.tmpl",
-// 	"types.tmpl",
-// 	"enums.tmpl",
-// 	"inputs.tmpl",
-// 	"client.tmpl",
-// 	"builder.tmpl",
-// }
+// pascalAcronyms maps a lowercased word to its Go-idiomatic all-caps spelling
+// for pascalCase. Read-only lookup table; never mutated.
+var pascalAcronyms = map[string]string{
+	"id":   "ID",
+	"url":  "URL",
+	"api":  "API",
+	"http": "HTTP",
+	"json": "JSON",
+	"xml":  "XML",
+	"sql":  "SQL",
+	"html": "HTML",
+	"css":  "CSS",
+	"uri":  "URI",
+	"uuid": "UUID",
+}
 
 // pascalCase converts a string like "CREATED_AT" or "user_id" to PascalCase,
-// with special handling for common acronyms (ID, URL, API, etc.).
-// Used as a template function.
+// with special handling for common acronyms (pascalAcronyms). Used as a
+// template function, notably for enum constant names in enums.tmpl.
+//
+// Not injective: "IN_PROGRESS" and "in_progress" (both legal, distinct GraphQL
+// enum values) map to the same "InProgress", and "_" maps to "". Callers that
+// need unique identifiers must check for collisions themselves.
 func pascalCase(s string) string {
 	if s == "" {
 		return s
-	}
-
-	// Handle common acronyms
-	acronyms := map[string]string{
-		"id":   "ID",
-		"url":  "URL",
-		"api":  "API",
-		"http": "HTTP",
-		"json": "JSON",
-		"xml":  "XML",
-		"sql":  "SQL",
-		"html": "HTML",
-		"css":  "CSS",
-		"uri":  "URI",
-		"uuid": "UUID",
 	}
 
 	// Split by underscore, hyphen, or space
@@ -61,7 +57,7 @@ func pascalCase(s string) string {
 	var result strings.Builder
 	for _, word := range words {
 		lower := strings.ToLower(word)
-		if acronym, ok := acronyms[lower]; ok {
+		if acronym, ok := pascalAcronyms[lower]; ok {
 			result.WriteString(acronym)
 		} else {
 			// Capitalize first letter, lowercase the rest
@@ -77,8 +73,16 @@ func pascalCase(s string) string {
 	return result.String()
 }
 
-// formatDesc formats a description for Go comments
-// First line includes the name prefix, subsequent lines are continuation
+// PascalCase is the exported form of the pascalCase template helper, for
+// generator code that must compute the exact identifier a template would
+// (e.g. to detect collisions before rendering).
+func PascalCase(s string) string { return pascalCase(s) }
+
+// formatDesc renders a GraphQL description as a Go doc comment for the
+// declaration name: the first line is prefixed with name (godoc convention),
+// later lines are plain `//` continuation lines, and blank lines are dropped.
+// Returns "" for an empty description so templates can fall back to a
+// generated comment.
 func formatDesc(name, desc string) string {
 	if desc == "" {
 		return ""
@@ -102,12 +106,13 @@ func formatDesc(name, desc string) string {
 	return result.String()
 }
 
-// splitLines splits a string by newlines
+// splitLines splits a string on "\n". Template helper for rendering
+// multi-line field descriptions one `//` line at a time.
 func splitLines(s string) []string {
 	return strings.Split(s, "\n")
 }
 
-// trimSpace trims whitespace from a string
+// trimSpace is strings.TrimSpace exposed as a template helper.
 func trimSpace(s string) string {
 	return strings.TrimSpace(s)
 }
@@ -190,12 +195,6 @@ func (t *Template) Funcs(funcMap template.FuncMap) *Template {
 	return t
 }
 
-// SkipIf allows registering a function to determine if the template needs to be skipped or not.
-// func (t *Template) SkipIf(cond func(*Graph) bool) *Template {
-// 	t.condition = cond
-// 	return t
-// }
-
 // Parse parses text as a template body for t.
 func (t *Template) Parse(text string) (*Template, error) {
 	if _, err := t.Template.Parse(text); err != nil {
@@ -262,17 +261,6 @@ func MustParse(t *Template, err error) *Template {
 	}
 	return t
 }
-
-// type Builder struct {
-// 	config       *Config
-// 	clientConfig *ClientConfig
-// 	schema       *ast.Schema
-// 	writer       *Writer
-// }
-
-// func NewBuilder(config *Config, clientConfig *ClientConfig, schema *ast.Schema) *Builder {
-// 	return &Builder{config: config, clientConfig: clientConfig, schema: schema, writer: writer}
-// }
 
 // TemplateDir returns the embedded filesystem containing the Go code generation
 // templates. Callers typically pass this to Template.ParseFS.

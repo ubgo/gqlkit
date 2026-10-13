@@ -94,24 +94,50 @@ func TestSkipGenField(t *testing.T) {
 	}
 }
 
-// TestGetZeroValue pins the Execute-method zero-value expressions.
+// TestGetZeroValue pins the Execute-method zero-value expressions. The
+// interesting rows are the non-struct named types: `T{}` is only a valid
+// expression for struct (and slice/map) types, so enums (`type X string`),
+// `any` scalar aliases, interface types and non-struct bindings must use
+// `*new(T)`. The DateTime row used to pin `scalars.DateTime{}`, which does not
+// compile for the `= any` alias an unbound scalar generates.
 func TestGetZeroValue(t *testing.T) {
-	cases := []struct{ in, want string }{
-		{"*types.User", "nil"},
-		{"[]*types.Post", "nil"},
-		{"map[string]int", "nil"},
-		{"interface{}", "nil"},
-		{"any", "nil"},
-		{"string", `""`},
-		{"bool", "false"},
-		{"int", "0"},
-		{"float64", "0"},
-		{"types.User", "types.User{}"},
-		{"scalars.DateTime", "scalars.DateTime{}"},
+	cases := []struct {
+		in       string
+		isStruct bool
+		want     string
+	}{
+		{"*types.User", false, "nil"},
+		{"*interface{}", false, "nil"},
+		{"[]*types.Post", false, "nil"},
+		{"[][]string", false, "nil"},
+		{"map[string]int", false, "nil"},
+		{"interface{}", false, "nil"},
+		{"any", false, "nil"},
+		{"string", false, `""`},
+		{"bool", false, "false"},
+		{"int", false, "0"},
+		{"int8", false, "0"},
+		{"int16", false, "0"},
+		{"uint8", false, "0"},
+		{"byte", false, "0"},
+		{"rune", false, "0"},
+		{"uintptr", false, "0"},
+		{"float32", false, "0"},
+		{"float64", false, "0"},
+		{"complex128", false, "0"},
+		{"types.User", true, "types.User{}"},
+		{"inputs.Filter", true, "inputs.Filter{}"},
+		{"types.Node", false, "*new(types.Node)"},
+		{"enums.Status", false, "*new(enums.Status)"},
+		{"scalars.DateTime", false, "*new(scalars.DateTime)"},
+		{"time.Time", false, "*new(time.Time)"},
+		{"json.Number", false, "*new(json.Number)"},
+		{"json.RawMessage", false, "*new(json.RawMessage)"},
+		{"error", false, "*new(error)"},
 	}
 	for _, c := range cases {
-		if got := getZeroValue(c.in); got != c.want {
-			t.Errorf("getZeroValue(%q) = %q, want %q", c.in, got, c.want)
+		if got := getZeroValue(c.in, c.isStruct); got != c.want {
+			t.Errorf("getZeroValue(%q, %v) = %q, want %q", c.in, c.isStruct, got, c.want)
 		}
 	}
 }

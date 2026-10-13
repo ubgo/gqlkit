@@ -13,6 +13,8 @@ var (
 	tsSchemaPath string
 	tsOutputDir  string
 	tsConfigPath string
+	tsPrune      bool
+	tsDryRun     bool
 )
 
 // generateTSCmd is the "generate-ts" subcommand that produces a TypeScript
@@ -21,11 +23,17 @@ var generateTSCmd = &cobra.Command{
 	Use:   "generate-ts",
 	Short: "Generate TypeScript SDK from GraphQL schema",
 	Long:  `Generates a type-safe TypeScript client SDK from a GraphQL SDL file.`,
+	Args:  noPositionalArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := requireConfigFile(tsConfigPath); err != nil {
+			return err
+		}
 		config := &clientgents.Config{
-			SchemaPath: tsSchemaPath,
-			OutputDir:  tsOutputDir,
-			ConfigPath: tsConfigPath,
+			SchemaPath:  tsSchemaPath,
+			OutputDir:   tsOutputDir,
+			ConfigPath:  tsConfigPath,
+			Prune:       tsPrune,
+			PruneDryRun: tsDryRun,
 		}
 
 		gen, err := clientgents.New(config)
@@ -45,6 +53,8 @@ func init() {
 	generateTSCmd.Flags().StringVarP(&tsSchemaPath, "schema", "s", "", "Path to GraphQL SDL file (required)")
 	generateTSCmd.Flags().StringVarP(&tsOutputDir, "output", "o", "./sdk", "Output directory for generated SDK")
 	generateTSCmd.Flags().StringVarP(&tsConfigPath, "config", "c", "", "Path to config.jsonc file (optional)")
+	generateTSCmd.Flags().BoolVar(&tsPrune, "prune", false, "Delete files in the output dir that carry the gqlkit generated-code banner but were not produced by this run (files without the banner are never touched)")
+	generateTSCmd.Flags().BoolVar(&tsDryRun, "dry-run", false, "With --prune: list the files that would be deleted, delete nothing")
 
 	// See generate.go: a failure here means the flag was renamed.
 	if err := generateTSCmd.MarkFlagRequired("schema"); err != nil {

@@ -13,57 +13,93 @@ export class {{ .Data.BuilderName }}<TResult = {{ .Data.DefaultGeneric }}> {
 {{- else }}
 export class {{ .Data.BuilderName }} {
 {{- end }}
-  private builder: BaseBuilder;
-
-  constructor(client: GraphQLClient) {
-    this.builder = new BaseBuilder(client, "{{ .Data.OpType }}", "{{ .Data.MethodName }}", "{{ .Data.FieldName }}");
+  readonly #builder: BaseBuilder;
+{{ if .Data.HasSelect }}
+  /** builder is internal: select() passes the shared state to the narrowed instance */
+  constructor(client: GraphQLClient, builder?: BaseBuilder) {
+    this.#builder = builder ?? new BaseBuilder(client, "{{ .Data.OpType }}", "{{ .Data.MethodName }}", "{{ .Data.FieldName }}");
+{{- if .Data.IsAbstract }}
+    // An abstract result needs a selection even if select() is never called.
+    if (!builder) this.#builder.getSelection().addField("__typename");
+{{- end }}
   }
+{{- else }}
+  constructor(client: GraphQLClient) {
+    this.#builder = new BaseBuilder(client, "{{ .Data.OpType }}", "{{ .Data.MethodName }}", "{{ .Data.FieldName }}");
+{{- if .Data.ResultDecoder }}
+    this.#builder.setResultDecoder({{ .Data.ResultDecoder }});
+{{- end }}
+  }
+{{- end }}
 {{ range .Data.Arguments }}
   /** Sets the {{ .ArgName }} argument */
   {{ .MethodName }}(v: {{ .TSType }}): this {
-    this.builder.setArg("{{ .ArgName }}", v, "{{ .GraphQLType }}");
+    this.#builder.setArg("{{ .ArgName }}", v, "{{ .GraphQLType }}"{{ .EncodeArg }});
     return this;
   }
 {{ end }}
 {{- if .Data.HasSelect }}
   /** Configures which fields to return */
   select<T extends object>(selector: (f: {{ .Data.SelectorName }}) => {{ .Data.SelectorName }}<T>): {{ .Data.BuilderName }}<{{ .Data.SelectWrapper }}> {
-    selector(new {{ .Data.SelectorName }}(this.builder.getSelection()));
-    return this as any;
+    selector(new {{ .Data.SelectorName }}(this.#builder.getSelection(){{ if .Data.IsAbstract }}, true{{ end }}));
+    return new {{ .Data.BuilderName }}<{{ .Data.SelectWrapper }}>(this.#builder.getClient(), this.#builder);
   }
 {{ end }}
-  /** Execute runs the {{ .Data.OpType }} and returns the result */
+  /** Execute runs the {{ .Data.OpType }} and returns the result; request.signal cancels it */
+{{- $rt := "TResult" }}{{ if not .Data.HasSelect }}{{ $rt = .Data.ReturnType }}{{ end }}
 {{- if .Data.HasSelect }}
-  async execute(): Promise<TResult> {
-    const query = this.builder.buildQuery();
-    const variables = this.builder.getVariables();
-
-    const response = await this.builder
-      .getClient()
-      .execute<{ {{ .Data.FieldName }}: TResult }>(query, variables);
-
-    return response.{{ .Data.FieldName }};
-  }
-{{- else }}
-  async execute(): Promise<{{ .Data.ReturnType }}> {
-    const query = this.builder.buildQuery();
-    const variables = this.builder.getVariables();
-
-    const response = await this.builder
-      .getClient()
-      .execute<{ {{ .Data.FieldName }}: {{ .Data.ReturnType }} }>(query, variables);
-
-    return response.{{ .Data.FieldName }};
-  }
+  async execute({{ if .Data.NeedsSelect }}this: TResult extends SelectionRequired ? never : this, {{ end }}request?: RequestOptions): Promise<TResult> { {{- if .Data.NeedsSelect }}
+    this.#requireSelection();
 {{- end }}
+{{- else }}
+  async execute(request?: RequestOptions): Promise<{{ .Data.ReturnType }}> {
+{{- end }}
+    const query = this.#builder.buildQuery();
+    const variables = this.#builder.getVariables();
+{{ if .Data.Decodes }}
+    let response: { {{ .Data.FieldName }}: {{ $rt }} };
+    try {
+      response = await this.#builder
+        .getClient()
+        .execute<{ {{ .Data.FieldName }}: {{ $rt }} }>(query, variables, request);
+    } catch (e) {
+      // Partial data arrives on the error as wire values; decode it first.
+      if (e instanceof GraphQLErrors) this.#builder.decodePartial(e);
+      throw e;
+    }
 
-  /** ExecuteRaw runs the {{ .Data.OpType }} and returns the raw response */
-  async executeRaw(): Promise<Record<string, unknown>> {
-    return await this.builder.executeRaw();
+    return this.#builder.decodeResult(response.{{ .Data.FieldName }});
+{{- else }}
+    const response = await this.#builder
+      .getClient()
+      .execute<{ {{ .Data.FieldName }}: {{ $rt }} }>(query, variables, request);
+
+    return response.{{ .Data.FieldName }};
+{{- end }}
+  }
+
+  /** ExecuteRaw runs the {{ .Data.OpType }} and returns the raw response; request.signal cancels it */
+  async executeRaw({{ if .Data.NeedsSelect }}this: TResult extends SelectionRequired ? never : this, {{ end }}request?: RequestOptions): Promise<Record<string, unknown>> { {{- if .Data.NeedsSelect }}
+    this.#requireSelection();
+{{- end }}
+    return await this.#builder
+      .getClient()
+      .execute<Record<string, unknown>>(this.#builder.buildQuery(), this.#builder.getVariables(), request);
   }
 
   /** Internal — exposes this operation as a fragment for batch() */
-  getOpFragment(alias: string) {
-    return this.builder.getOpFragment(alias);
+  getOpFragment({{ if .Data.NeedsSelect }}this: TResult extends SelectionRequired ? never : this, {{ end }}alias: string) { {{- if .Data.NeedsSelect }}
+    this.#requireSelection();
+{{- end }}
+    return this.#builder.getOpFragment(alias);
   }
+{{- if .Data.NeedsSelect }}
+
+  /** Fails before sending: the server rejects {{ .Data.FieldName }} without a selection set. */
+  #requireSelection(): void {
+    if (this.#builder.getSelection().isEmpty()) {
+      throw new Error("gqlkit: {{ .Data.FieldName }} returns an object type; call select() with at least one field before running it");
+    }
+  }
+{{- end }}
 }

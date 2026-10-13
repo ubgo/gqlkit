@@ -6,7 +6,15 @@ type {{ .SelectorName }} struct {
 }
 
 // New{{ .SelectorName }} creates a new {{ .SelectorName }} selector
+{{- if .IsAbstract }}
+//
+// {{ .TypeName }} is abstract: __typename is always selected so the result can
+// be decoded into its concrete type.
+{{- end }}
 func New{{ .SelectorName }}(selection *{{ .BuilderPkgName }}.FieldSelection) *{{ .SelectorName }} {
+{{- if .IsAbstract }}
+	selection.AddField("__typename")
+{{- end }}
 	return &{{ .SelectorName }}{selection: selection}
 }
 
@@ -29,5 +37,18 @@ func (f *{{ $.SelectorName }}) {{ .MethodName }}() *{{ $.SelectorName }} {
 	return f
 }
 {{- end }}
+{{- end }}
+{{- range .Fragments }}
+
+// {{ .MethodName }} selects fields that only exist when the result is a
+// {{ .TypeName }} (an inline fragment: ... on {{ .TypeName }}).
+func (f *{{ $.SelectorName }}) {{ .MethodName }}(selector func(*{{ .Selector }})) *{{ $.SelectorName }} {
+	child := {{ $.BuilderPkgName }}.NewFieldSelection()
+	if selector != nil {
+		selector(New{{ .Selector }}(child))
+	}
+	f.selection.AddFragment("{{ .TypeName }}", child)
+	return f
+}
 {{- end }}
 {{- end }}

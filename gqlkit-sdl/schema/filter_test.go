@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -104,7 +105,7 @@ func TestHasFilters(t *testing.T) {
 
 func TestFilterSchemaNilOptsReturnsSame(t *testing.T) {
 	s := sampleSchema()
-	if got := FilterSchema(s, nil); got != s {
+	if got := mustFilter(t, s, nil); got != s {
 		t.Errorf("nil opts should return the original schema pointer")
 	}
 }
@@ -113,7 +114,7 @@ func TestFilterSchemaLeavesOriginalUnchanged(t *testing.T) {
 	s := sampleSchema()
 	origQueryFields := len(fieldNames(s, "Query"))
 	opts := &FilterOptions{OnlyQueries: []string{"users"}}
-	FilterSchema(s, opts)
+	mustFilter(t, s, opts)
 	if got := len(fieldNames(s, "Query")); got != origQueryFields {
 		t.Errorf("original schema mutated: Query fields = %d, want %d", got, origQueryFields)
 	}
@@ -121,7 +122,7 @@ func TestFilterSchemaLeavesOriginalUnchanged(t *testing.T) {
 
 func TestFilterOnlyQueries(t *testing.T) {
 	s := sampleSchema()
-	out := FilterSchema(s, &FilterOptions{OnlyQueries: []string{"users"}})
+	out := mustFilter(t, s, &FilterOptions{OnlyQueries: []string{"users"}})
 	got := fieldNames(out, "Query")
 	if len(got) != 1 || got[0] != "users" {
 		t.Errorf("only-queries: got %v, want [users]", got)
@@ -134,7 +135,7 @@ func TestFilterOnlyQueries(t *testing.T) {
 
 func TestFilterOnlyMutations(t *testing.T) {
 	s := sampleSchema()
-	out := FilterSchema(s, &FilterOptions{OnlyMutations: []string{"createUser"}})
+	out := mustFilter(t, s, &FilterOptions{OnlyMutations: []string{"createUser"}})
 	got := fieldNames(out, "Mutation")
 	if len(got) != 1 || got[0] != "createUser" {
 		t.Errorf("only-mutations: got %v, want [createUser]", got)
@@ -143,7 +144,7 @@ func TestFilterOnlyMutations(t *testing.T) {
 
 func TestFilterExcludeQueries(t *testing.T) {
 	s := sampleSchema()
-	out := FilterSchema(s, &FilterOptions{ExcludeQueries: []string{"posts"}})
+	out := mustFilter(t, s, &FilterOptions{ExcludeQueries: []string{"posts"}})
 	got := fieldNames(out, "Query")
 	for _, n := range got {
 		if n == "posts" {
@@ -158,7 +159,7 @@ func TestFilterExcludeQueries(t *testing.T) {
 func TestFilterExcludeByRegex(t *testing.T) {
 	s := sampleSchema()
 	// "task.*" contains regex metacharacters -> compiled as anchored regex.
-	out := FilterSchema(s, &FilterOptions{ExcludeQueries: []string{"task.*"}})
+	out := mustFilter(t, s, &FilterOptions{ExcludeQueries: []string{"task.*"}})
 	got := fieldNames(out, "Query")
 	for _, n := range got {
 		if n == "taskList" {
@@ -169,7 +170,7 @@ func TestFilterExcludeByRegex(t *testing.T) {
 
 func TestFilterOnlyByRegex(t *testing.T) {
 	s := sampleSchema()
-	out := FilterSchema(s, &FilterOptions{OnlyQueries: []string{"user.*"}})
+	out := mustFilter(t, s, &FilterOptions{OnlyQueries: []string{"user.*"}})
 	got := fieldNames(out, "Query")
 	if len(got) != 1 || got[0] != "users" {
 		t.Errorf("regex only: got %v, want [users]", got)
@@ -180,7 +181,7 @@ func TestFilterRemoveUnused(t *testing.T) {
 	s := sampleSchema()
 	// Keep only the users query, then prune. Post, Task, CreateUserInput, Orphan
 	// become unreachable (createUser mutation is still present, so User + input stay).
-	out := FilterSchema(s, &FilterOptions{
+	out := mustFilter(t, s, &FilterOptions{
 		OnlyQueries:  []string{"users"},
 		RemoveUnused: true,
 	})
@@ -199,7 +200,7 @@ func TestFilterRemoveUnusedPrunesEverythingUnreachable(t *testing.T) {
 	s := sampleSchema()
 	// Exclude all mutations and keep only users query. Post, Task, CreateUserInput,
 	// Orphan all become unreachable.
-	out := FilterSchema(s, &FilterOptions{
+	out := mustFilter(t, s, &FilterOptions{
 		OnlyQueries:      []string{"users"},
 		ExcludeMutations: []string{"createUser", "deleteTask"},
 		RemoveUnused:     true,
@@ -223,7 +224,7 @@ func TestRemoveUnusedKeepsMetaTypes(t *testing.T) {
 			{Kind: "OBJECT", Name: "Orphan"},
 		},
 	}
-	out := FilterSchema(s, &FilterOptions{RemoveUnused: true})
+	out := mustFilter(t, s, &FilterOptions{RemoveUnused: true})
 	if !hasType(out, "__Type") {
 		t.Errorf("__ prefixed meta-types should be retained")
 	}
@@ -255,7 +256,7 @@ func TestRemoveUnusedFollowsInterfacesUnionsEnums(t *testing.T) {
 			{Kind: "OBJECT", Name: "Dangling"},
 		},
 	}
-	out := FilterSchema(s, &FilterOptions{RemoveUnused: true})
+	out := mustFilter(t, s, &FilterOptions{RemoveUnused: true})
 	for _, reachable := range []string{"Node", "Widget", "Result", "Hit", "Status"} {
 		if !hasType(out, reachable) {
 			t.Errorf("%s should be reachable, types = %v", reachable, typeNames(out))
@@ -280,7 +281,7 @@ func TestRemoveUnusedSeedsFromDirectiveArgs(t *testing.T) {
 			}},
 		},
 	}
-	out := FilterSchema(s, &FilterOptions{RemoveUnused: true})
+	out := mustFilter(t, s, &FilterOptions{RemoveUnused: true})
 	if !hasType(out, "Role") {
 		t.Errorf("Role is referenced by a directive arg, should be kept")
 	}
@@ -302,7 +303,7 @@ func TestFilterSubscriptionRootWalked(t *testing.T) {
 			{Kind: "OBJECT", Name: "Orphan"},
 		},
 	}
-	out := FilterSchema(s, &FilterOptions{RemoveUnused: true})
+	out := mustFilter(t, s, &FilterOptions{RemoveUnused: true})
 	if !hasType(out, "Event") {
 		t.Errorf("Event reachable via subscription, should be kept, types = %v", typeNames(out))
 	}
@@ -323,7 +324,7 @@ func TestRemoveUnusedDanglingReference(t *testing.T) {
 			{Kind: "OBJECT", Name: "Orphan"},
 		},
 	}
-	out := FilterSchema(s, &FilterOptions{RemoveUnused: true})
+	out := mustFilter(t, s, &FilterOptions{RemoveUnused: true})
 	if hasType(out, "Orphan") {
 		t.Errorf("Orphan should be pruned, types = %v", typeNames(out))
 	}
@@ -332,24 +333,31 @@ func TestRemoveUnusedDanglingReference(t *testing.T) {
 	}
 }
 
-func TestCompileMatchersInvalidRegexFallsBackToExact(t *testing.T) {
-	// "[" has a regex metacharacter but is an invalid pattern; compileMatchers
-	// should fall back to an exact matcher.
-	ms := compileMatchers([]string{"["})
-	if len(ms) != 1 {
-		t.Fatalf("expected 1 matcher, got %d", len(ms))
+// mustFilter is FilterSchema for cases that must not error.
+func mustFilter(t *testing.T, s *IntrospectionSchema, opts *FilterOptions) *IntrospectionSchema {
+	t.Helper()
+	out, err := FilterSchema(s, opts)
+	if err != nil {
+		t.Fatalf("FilterSchema: %v", err)
 	}
-	if ms[0].re != nil {
-		t.Errorf("invalid regex should fall back to exact matcher, got regex")
+	return out
+}
+
+func TestCompileMatchersInvalidRegexIsError(t *testing.T) {
+	// "[" has a regex metacharacter but is an invalid pattern. It used to
+	// fall back to an exact match, silently keeping nothing.
+	ms, err := compileMatchers([]string{"ok", "["})
+	if err == nil || ms != nil {
+		t.Fatalf("expected error, got matchers %v", ms)
 	}
-	if !ms[0].matches("[") {
-		t.Errorf("exact fallback matcher should match the literal string")
+	if !strings.Contains(err.Error(), `invalid filter pattern "["`) {
+		t.Errorf("error does not name the pattern: %v", err)
 	}
 }
 
 func TestCompileMatchersAlreadyAnchored(t *testing.T) {
 	// Pattern already anchored with ^ and $ should compile as-is.
-	ms := compileMatchers([]string{"^users$"})
+	ms, _ := compileMatchers([]string{"^users$"})
 	if len(ms) != 1 || ms[0].re == nil {
 		t.Fatalf("expected a compiled regex matcher")
 	}
@@ -359,13 +367,13 @@ func TestCompileMatchersAlreadyAnchored(t *testing.T) {
 }
 
 func TestCompileMatchersEmpty(t *testing.T) {
-	if ms := compileMatchers(nil); ms != nil {
+	if ms, err := compileMatchers(nil); ms != nil || err != nil {
 		t.Errorf("compileMatchers(nil) = %v, want nil", ms)
 	}
 }
 
 func TestMatchesAny(t *testing.T) {
-	ms := compileMatchers([]string{"a", "b.*"})
+	ms, _ := compileMatchers([]string{"a", "b.*"})
 	if !matchesAny("a", ms) {
 		t.Errorf("expected exact match on 'a'")
 	}

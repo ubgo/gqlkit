@@ -3,9 +3,11 @@ package clientgen
 import (
 	"bytes"
 	"fmt"
-	"github.com/ubgo/gqlkit/gqlkit/pkg/util"
+	"go/types"
 	"sort"
 	"strings"
+
+	"github.com/ubgo/gqlkit/gqlkit/pkg/writer"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -13,6 +15,11 @@ import (
 // ArgumentData describes a single argument on a generated operation builder,
 // including its GraphQL name, Go method name, Go type, and the original
 // GraphQL type annotation string used in SetArg calls.
+//
+// MethodName is unique on the builder: an argument whose PascalCase name
+// equals a builder method (Select, Execute, BuildQuery, ...; see
+// builderReservedNames) or another argument's is suffixed with "_"
+// (Select_). ArgName stays the GraphQL name, so the wire is unaffected.
 type ArgumentData struct {
 	ArgName     string
 	MethodName  string
@@ -23,8 +30,14 @@ type ArgumentData struct {
 // OperationBuilderData holds all the template data needed to generate a single
 // query or mutation builder Go file. Each builder embeds BaseBuilder and adds
 // typed argument setters, an optional Select method, and an Execute method.
+//
+// OpType is the opKind value as a plain string because operation_builder.tmpl
+// compares it against the literal "query" to pick the op-kind marker embed.
 type OperationBuilderData struct {
-	BuilderName  string
+	BuilderName string
+	// Description is the root field's GraphQL description, rendered as the
+	// builder's doc comment; "" falls back to a generated sentence.
+	Description  string
 	OpType       string
 	FieldName    string
 	Arguments    []ArgumentData
@@ -34,19 +47,51 @@ type OperationBuilderData struct {
 	ZeroValue    string
 }
 
+// opKindSpec carries every per-kind naming decision for one root operation
+// kind, so the query and mutation code paths share one implementation and can
+// never drift apart.
+type opKindSpec struct {
+	kind          opKind
+	pkg           string // generated sub-package (and directory) name
+	rootType      string // the factory struct in <pkg>/root.go
+	receiver      string // receiver identifier used on rootType's methods
+	builderSuffix string // appended to the PascalCase field name
+}
+
+// opKindSpecs is the canonical per-kind naming table. Query builders keep the
+// historical bare "Builder" suffix; mutation builders add "Mutation" so a
+// query and a mutation with the same field name do not collide when both are
+// referenced from one file.
+var opKindSpecs = map[opKind]opKindSpec{
+	opKindQuery: {
+		kind: opKindQuery, pkg: pkgQueries, rootType: "QueryRoot",
+		receiver: "q", builderSuffix: "Builder",
+	},
+	opKindMutation: {
+		kind: opKindMutation, pkg: pkgMutations, rootType: "MutationRoot",
+		receiver: "m", builderSuffix: "MutationBuilder",
+	},
+}
+
 // graphQLOpToGoType converts a GraphQL type to the Go type used in operation
 // builder files. Unlike graphQLToGoType, this version prefixes object types
 // with "types." and input objects with "inputs." since builders live in
-// separate packages from the type definitions.
+// separate packages from the type definitions, and it does NOT force object
+// types to pointers (a non-null object return is returned by value).
 func (g *Generator) graphQLOpToGoType(t *ast.Type) string {
 	if t == nil {
-		return "interface{}"
+		return goEmptyInterface
 	}
 
 	goType := g.resolveOpType(t)
 
-	// If nullable (not NonNull), make it a pointer (except for slices).
-	if !t.NonNull && !strings.HasPrefix(goType, "[]") {
+	// Nullable becomes a pointer, except for slices and pointer bindings:
+	// nil already represents null. Deliberately decided on the rendered text, not on
+	// t.Elem, so a binding whose Go type is itself a slice ([]byte) also
+	// stays unpointered — changing that would alter the public type of
+	// existing generated SDKs. Go type syntax is prefix-only, so prepending
+	// "*" or "[]" can never re-associate (unlike TS's `A | B[]`).
+	if !t.NonNull && !isNilableGoType(goType) {
 		goType = "*" + goType
 	}
 
@@ -56,26 +101,44 @@ func (g *Generator) graphQLOpToGoType(t *ast.Type) string {
 // resolveOpType resolves the base Go type for operation builders.
 func (g *Generator) resolveOpType(t *ast.Type) string {
 	if t.Elem != nil {
-		// It's a list type.
-		elemType := g.graphQLOpToGoType(t.Elem)
-		return "[]" + elemType
+		return "[]" + g.graphQLOpToGoType(t.Elem)
 	}
 
-	// Named type.
 	name := t.NamedType
+	if pkg := g.opLocalPackage(name); pkg != "" {
+		return pkg + "." + g.namedTypeToGo(name)
+	}
+	return g.namedTypeToGo(name)
+}
+
+// opLocalPackage returns the generated sub-package (pkgTypes / pkgInputs) a
+// named type is qualified with inside queries/ and mutations/ (objects and
+// abstract-type wrappers → types, input objects → inputs), or "" when it needs
+// no local qualifier (scalars, enums, bindings, unknown names).
+//
+// It is the single source of truth for both the rendered type text
+// (resolveOpType) and the import set (opLocalImports), so an import is added
+// exactly when a reference is emitted — never by substring-matching the type
+// text, which mistook bindings such as "dbtypes.Money" for the types package.
+func (g *Generator) opLocalPackage(name string) string {
 	def := g.schema.Types[name]
 	if def == nil {
-		// Fallback to the generic mapper.
-		return g.namedTypeToGo(name)
+		return ""
 	}
-
 	switch def.Kind {
-	case ast.Object, ast.Interface:
-		return "types." + exportName(def.Name)
+	case ast.Object, ast.Interface, ast.Union:
+		return pkgTypes
 	case ast.InputObject:
-		return "inputs." + exportName(def.Name)
-	default:
-		return g.namedTypeToGo(name)
+		return pkgInputs
+	}
+	return ""
+}
+
+// opLocalImports adds to set the sub-package suffixes (pkgTypes, pkgInputs)
+// referenced by the Go rendering of t.
+func (g *Generator) opLocalImports(t *ast.Type, set map[string]bool) {
+	if pkg := g.opLocalPackage(getBaseTypeName(t)); pkg != "" {
+		set[pkg] = true
 	}
 }
 
@@ -101,193 +164,174 @@ func formatGraphQLType(t *ast.Type) string {
 	return result
 }
 
-// getZeroValue returns the Go zero value expression for a type string.
-// Used in generated Execute methods to provide a default return on error.
-func getZeroValue(goType string) string {
-	// Pointer, slice, map, interface and alias types default to nil.
+// getZeroValue returns the Go zero-value expression for goType, used in the
+// generated Execute method's error return.
+//
+// isStruct must be true only when goType is known to be a struct (a generated
+// object or input object, by value): only then is the composite literal
+// `T{}` valid. Every other non-basic named type — enums (`type X string`),
+// interface types, `any` scalar aliases, and bindings whose kind is unknown
+// (json.Number, int16, a named slice) — gets `*new(T)`, which is the zero
+// value of any Go type and always compiles.
+func getZeroValue(goType string, isStruct bool) string {
 	if strings.HasPrefix(goType, "*") ||
 		strings.HasPrefix(goType, "[]") ||
 		strings.HasPrefix(goType, "map[") ||
-		goType == "interface{}" ||
+		goType == goEmptyInterface ||
 		goType == "any" {
 		return "nil"
 	}
 
-	switch goType {
-	case "string":
-		return `""`
-	case "bool":
-		return "false"
-	case "int", "int32", "int64",
-		"uint", "uint32", "uint64",
-		"float32", "float64":
-		return "0"
+	if obj := types.Universe.Lookup(goType); obj != nil {
+		if basic, ok := obj.Type().(*types.Basic); ok {
+			switch {
+			case basic.Info()&types.IsString != 0:
+				return `""`
+			case basic.Info()&types.IsBoolean != 0:
+				return "false"
+			case basic.Info()&types.IsNumeric != 0:
+				return "0"
+			}
+		}
 	}
 
-	// For all other types, use the composite literal.
-	return goType + "{}"
+	if isStruct {
+		return goType + "{}"
+	}
+	return "*new(" + goType + ")"
 }
 
 // buildOperationBuilderData builds template data for a single query/mutation field.
-func (g *Generator) buildOperationBuilderData(opType string, field *ast.FieldDefinition) OperationBuilderData {
+//
+// methodName is the field's unique factory-method name (see rootGoNames);
+// the builder type is methodName + the kind's suffix.
+func (g *Generator) buildOperationBuilderData(spec opKindSpec, field *ast.FieldDefinition, methodName string) OperationBuilderData {
 	returnTypeName := getBaseTypeName(field.Type)
 	returnType := g.graphQLOpToGoType(field.Type)
 	isObjReturn := isObjectType(g.schema, field.Type)
-
-	// Builder name: AiModelsBuilder or AiModelsMutationBuilder.
-	methodName := util.ToPascalCase(field.Name)
-	builderName := methodName + "Builder"
-	if opType == "mutation" {
-		builderName = methodName + "MutationBuilder"
-	}
+	// A by-value struct return only happens for a non-null, non-list
+	// object; isStructKind already excludes bound and interface types.
+	isStructReturn := field.Type.Elem == nil && g.isStructKind(returnTypeName)
 
 	data := OperationBuilderData{
-		BuilderName: builderName,
-		OpType:      opType,
+		BuilderName: methodName + spec.builderSuffix,
+		Description: field.Description,
+		OpType:      string(spec.kind),
 		FieldName:   field.Name,
 		Arguments:   make([]ArgumentData, 0, len(field.Arguments)),
 		HasSelect:   isObjReturn,
 		ReturnType:  returnType,
-		ZeroValue:   getZeroValue(returnType),
+		ZeroValue:   getZeroValue(returnType, isStructReturn),
 	}
 
 	if isObjReturn {
 		data.SelectorName = exportName(returnTypeName) + "Fields"
 	}
 
+	setters := argGoNames(field.Arguments)
 	for _, arg := range field.Arguments {
-		argData := ArgumentData{
+		data.Arguments = append(data.Arguments, ArgumentData{
 			ArgName:     arg.Name,
-			MethodName:  util.ToPascalCase(arg.Name),
+			MethodName:  setters[arg.Name],
 			GoType:      g.graphQLOpToGoType(arg.Type),
 			GraphQLType: formatGraphQLType(arg.Type),
-		}
-		data.Arguments = append(data.Arguments, argData)
+		})
 	}
 
 	return data
 }
 
-// collectOperationImports collects imports required for a single operation.
-func (g *Generator) collectOperationImports(field *ast.FieldDefinition) []string {
-	imports := make(map[string]bool)
+// collectOperationImports returns the sorted, de-duplicated import paths one
+// generated operation file needs: context, the SDK's builder / types /
+// inputs / fields packages as referenced, and any scalar, enum or binding
+// packages reached through the return and argument types.
+func (g *Generator) collectOperationImports(field *ast.FieldDefinition, data OperationBuilderData) []string {
+	importSet := map[string]bool{"context": true}
 
-	// External or scalar/enum imports based on bindings.
-	g.checkTypeForImports(field.Type, imports)
+	rootPkg := strings.TrimSuffix(g.config.Package, "/")
+	importSet[rootPkg+"/"+pkgBuilder] = true
+
+	local := map[string]bool{}
+	g.opLocalImports(field.Type, local)
 	for _, arg := range field.Arguments {
-		g.checkTypeForImports(arg.Type, imports)
+		g.opLocalImports(arg.Type, local)
+	}
+	// The fields package is only referenced by the Select method.
+	if data.HasSelect {
+		local[pkgFields] = true
+	}
+	for pkg := range local {
+		importSet[rootPkg+"/"+pkg] = true
 	}
 
-	// Ensure deterministic order.
-	list := make([]string, 0, len(imports))
-	for imp := range imports {
-		list = append(list, imp)
+	g.checkTypeForImports(field.Type, importSet)
+	for _, arg := range field.Arguments {
+		g.checkTypeForImports(arg.Type, importSet)
 	}
-	sort.Strings(list)
-	return list
+
+	imports := make([]string, 0, len(importSet))
+	for imp := range importSet {
+		// Defensive: an empty path would render `import ""`.
+		if imp == "" {
+			continue
+		}
+		imports = append(imports, imp)
+	}
+	sort.Strings(imports)
+	return imports
 }
 
 // generateOperationFiles generates per-field builder files for all queries and
 // mutations, plus the root.go entrypoint files that provide factory methods.
+// Subscriptions are not generated.
 func (g *Generator) generateOperationFiles() error {
-	if g.schema.Query != nil {
-		if err := g.generateOperationFilesForType("query", g.schema.Query); err != nil {
+	roots := []struct {
+		def  *ast.Definition
+		kind opKind
+	}{
+		{g.schema.Query, opKindQuery},
+		{g.schema.Mutation, opKindMutation},
+	}
+	for _, r := range roots {
+		if r.def == nil {
+			continue
+		}
+		spec := opKindSpecs[r.kind]
+		if err := g.generateOperationFilesForType(spec, r.def); err != nil {
 			return err
 		}
-		if err := g.generateQueryRootFile(); err != nil {
+		if err := g.generateRootFile(spec, r.def); err != nil {
 			return err
 		}
 	}
-
-	if g.schema.Mutation != nil {
-		if err := g.generateOperationFilesForType("mutation", g.schema.Mutation); err != nil {
-			return err
-		}
-		if err := g.generateMutationRootFile(); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
 // generateOperationFilesForType emits one Go builder file per field on the
 // given root type (Query or Mutation). Each file contains a builder struct,
 // argument setters, optional Select method, and an Execute method.
-func (g *Generator) generateOperationFilesForType(opType string, def *ast.Definition) error {
+func (g *Generator) generateOperationFilesForType(spec opKindSpec, def *ast.Definition) error {
 	if def == nil {
 		return nil
 	}
 
-	subDir := "queries"
-	pkgName := "queries"
-	if opType == "mutation" {
-		subDir = "mutations"
-		pkgName = "mutations"
-	}
-
+	names := rootGoNames(def)
 	for _, field := range def.Fields {
 		if skipGenField(field.Name) {
 			continue
 		}
 
-		data := g.buildOperationBuilderData(opType, field)
-
-		// Base imports.
-		importSet := map[string]bool{
-			"context": true,
-		}
-
-		// Root package for generated SDK (e.g., gqlkit/sdk).
-		rootPkg := strings.TrimSuffix(g.config.Package, "/")
-		if rootPkg != "" {
-			importSet[rootPkg+"/builder"] = true
-		}
-
-		// Add types/inputs packages if referenced.
-		if strings.Contains(data.ReturnType, "types.") {
-			importSet[rootPkg+"/types"] = true
-		}
-		if strings.Contains(data.ReturnType, "inputs.") {
-			importSet[rootPkg+"/inputs"] = true
-		}
-		for _, arg := range data.Arguments {
-			if strings.Contains(arg.GoType, "types.") {
-				importSet[rootPkg+"/types"] = true
-			}
-			if strings.Contains(arg.GoType, "inputs.") {
-				importSet[rootPkg+"/inputs"] = true
-			}
-		}
-
-		// Fields package only needed when there's a Select.
-		if data.HasSelect && rootPkg != "" {
-			importSet[rootPkg+"/fields"] = true
-		}
-
-		// Imports based on scalar/enum/binding types.
-		for _, imp := range g.collectOperationImports(field) {
-			importSet[imp] = true
-		}
-
-		// Convert imports to sorted slice, excluding "" (defensive).
-		var imports []string
-		for imp := range importSet {
-			if imp == "" {
-				continue
-			}
-			imports = append(imports, imp)
-		}
-		sort.Strings(imports)
+		data := g.buildOperationBuilderData(spec, field, names[field.Name].Method)
+		imports := g.collectOperationImports(field, data)
 
 		var buf bytes.Buffer
 		if err := g.templates.ExecuteTemplate(&buf, "operation_builder", data); err != nil {
-			return fmt.Errorf("operation template for %s %s: %w", opType, field.Name, err)
+			return fmt.Errorf("operation template for %s %s: %w", spec.kind, field.Name, err)
 		}
 
 		var file bytes.Buffer
-		file.WriteString("// Code generated by gqlkit. DO NOT EDIT.\n\n")
-		fmt.Fprintf(&file, "package %s\n\n", pkgName)
+		file.WriteString(writer.GeneratedHeader)
+		fmt.Fprintf(&file, "package %s\n\n", spec.pkg)
 		file.WriteString("import (\n")
 		for _, imp := range imports {
 			fmt.Fprintf(&file, "\t%q\n", imp)
@@ -295,7 +339,7 @@ func (g *Generator) generateOperationFilesForType(opType string, def *ast.Defini
 		file.WriteString(")\n\n")
 		file.Write(buf.Bytes())
 
-		filename := fmt.Sprintf("%s/%s_%s.go", subDir, opType, util.ToSnakeCase(field.Name))
+		filename := fmt.Sprintf("%s/%s_%s.go", spec.pkg, spec.kind, names[field.Name].FileStem)
 		if err := g.writer.WriteFile(filename, file.String()); err != nil {
 			return fmt.Errorf("write %s: %w", filename, err)
 		}
@@ -304,98 +348,44 @@ func (g *Generator) generateOperationFilesForType(opType string, def *ast.Defini
 	return nil
 }
 
-// generateQueryRootFile generates queries/root.go containing QueryRoot, a
-// struct with factory methods that create individual query builders.
-func (g *Generator) generateQueryRootFile() error {
-	if g.schema.Query == nil {
-		return nil
-	}
-
+// generateRootFile generates <pkg>/root.go (queries/root.go or
+// mutations/root.go): the QueryRoot / MutationRoot struct with one factory
+// method per root field, each returning a fresh builder bound to the client.
+func (g *Generator) generateRootFile(spec opKindSpec, def *ast.Definition) error {
 	rootPkg := strings.TrimSuffix(g.config.Package, "/")
 
 	var sb strings.Builder
-	sb.WriteString("// Code generated by gqlkit. DO NOT EDIT.\n\n")
-	sb.WriteString("package queries\n\n")
-	if rootPkg != "" {
-		fmt.Fprintf(&sb, "import %q\n\n", rootPkg+"/builder")
-	} else {
-		sb.WriteString("import \"github.com/ubgo/gqlkit/gqlkit/sdk/builder\"\n\n")
-	}
+	sb.WriteString(writer.GeneratedHeader)
+	fmt.Fprintf(&sb, "package %s\n\n", spec.pkg)
+	fmt.Fprintf(&sb, "import %q\n\n", rootPkg+"/"+pkgBuilder)
 
-	sb.WriteString("// QueryRoot is the entry point for queries\n")
-	sb.WriteString("type QueryRoot struct {\n")
+	fmt.Fprintf(&sb, "// %s is the entry point for %s\n", spec.rootType, spec.pkg)
+	fmt.Fprintf(&sb, "type %s struct {\n", spec.rootType)
 	sb.WriteString("\tclient builder.GraphQLClient\n")
 	sb.WriteString("}\n\n")
 
-	sb.WriteString("// NewQueryRoot creates a new QueryRoot\n")
-	sb.WriteString("func NewQueryRoot(client builder.GraphQLClient) *QueryRoot {\n")
-	sb.WriteString("\treturn &QueryRoot{client: client}\n")
+	fmt.Fprintf(&sb, "// New%s creates a new %s\n", spec.rootType, spec.rootType)
+	fmt.Fprintf(&sb, "func New%s(client builder.GraphQLClient) *%s {\n", spec.rootType, spec.rootType)
+	fmt.Fprintf(&sb, "\treturn &%s{client: client}\n", spec.rootType)
 	sb.WriteString("}\n")
 
-	for _, field := range g.schema.Query.Fields {
+	names := rootGoNames(def)
+	for _, field := range def.Fields {
 		if skipGenField(field.Name) {
 			continue
 		}
 
-		methodName := util.ToPascalCase(field.Name)
-		builderName := methodName + "Builder"
+		methodName := names[field.Name].Method
+		builderName := methodName + spec.builderSuffix
 
 		sb.WriteString("\n")
 		fmt.Fprintf(&sb, "// %s creates a new %s\n", methodName, builderName)
-		fmt.Fprintf(&sb, "func (q *QueryRoot) %s() *%s {\n", methodName, builderName)
+		fmt.Fprintf(&sb, "func (%s *%s) %s() *%s {\n", spec.receiver, spec.rootType, methodName, builderName)
 		fmt.Fprintf(&sb, "\treturn &%s{\n", builderName)
-		fmt.Fprintf(&sb, "\t\tBaseBuilder: builder.NewBaseBuilder(q.client, %q, %q, %q),\n", "query", methodName, field.Name)
+		fmt.Fprintf(&sb, "\t\tBaseBuilder: builder.NewBaseBuilder(%s.client, %q, %q, %q),\n", spec.receiver, string(spec.kind), methodName, field.Name)
 		sb.WriteString("\t}\n")
 		sb.WriteString("}\n")
 	}
 
-	return g.writer.WriteFile("queries/root.go", sb.String())
-}
-
-// generateMutationRootFile generates mutations/root.go containing MutationRoot,
-// a struct with factory methods that create individual mutation builders.
-func (g *Generator) generateMutationRootFile() error {
-	if g.schema.Mutation == nil {
-		return nil
-	}
-
-	rootPkg := strings.TrimSuffix(g.config.Package, "/")
-
-	var sb strings.Builder
-	sb.WriteString("// Code generated by gqlkit. DO NOT EDIT.\n\n")
-	sb.WriteString("package mutations\n\n")
-	if rootPkg != "" {
-		fmt.Fprintf(&sb, "import %q\n\n", rootPkg+"/builder")
-	} else {
-		sb.WriteString("import \"github.com/ubgo/gqlkit/gqlkit/sdk/builder\"\n\n")
-	}
-
-	sb.WriteString("// MutationRoot is the entry point for mutations\n")
-	sb.WriteString("type MutationRoot struct {\n")
-	sb.WriteString("\tclient builder.GraphQLClient\n")
-	sb.WriteString("}\n\n")
-
-	sb.WriteString("// NewMutationRoot creates a new MutationRoot\n")
-	sb.WriteString("func NewMutationRoot(client builder.GraphQLClient) *MutationRoot {\n")
-	sb.WriteString("\treturn &MutationRoot{client: client}\n")
-	sb.WriteString("}\n")
-
-	for _, field := range g.schema.Mutation.Fields {
-		if skipGenField(field.Name) {
-			continue
-		}
-
-		methodName := util.ToPascalCase(field.Name)
-		builderName := methodName + "MutationBuilder"
-
-		sb.WriteString("\n")
-		fmt.Fprintf(&sb, "// %s creates a new %s\n", methodName, builderName)
-		fmt.Fprintf(&sb, "func (m *MutationRoot) %s() *%s {\n", methodName, builderName)
-		fmt.Fprintf(&sb, "\treturn &%s{\n", builderName)
-		fmt.Fprintf(&sb, "\t\tBaseBuilder: builder.NewBaseBuilder(m.client, %q, %q, %q),\n", "mutation", methodName, field.Name)
-		sb.WriteString("\t}\n")
-		sb.WriteString("}\n")
-	}
-
-	return g.writer.WriteFile("mutations/root.go", sb.String())
+	return g.writer.WriteFile(spec.pkg+"/root.go", sb.String())
 }

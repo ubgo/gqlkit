@@ -11,7 +11,7 @@ import (
 
 {{ range .Types }}
 {{- if .Description }}
-{{ formatDesc .Name .Description }}{{ else }}
+{{ trimSpace (formatDesc .Name .Description) }}{{ else }}
 {{- if .IsInterface }}
 // {{ .Name }} is a GraphQL interface type
 {{- else }}

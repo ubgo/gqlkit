@@ -7,21 +7,26 @@ package clientgen
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/ubgo/gqlkit/gqlkit/pkg/schemagql"
 	"github.com/ubgo/gqlkit/gqlkit/pkg/templater"
 	"github.com/ubgo/gqlkit/gqlkit/pkg/typegql"
 	"github.com/ubgo/gqlkit/gqlkit/pkg/writer"
-	"sort"
-	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-// ClientConfig holds user-specified scalar-to-Go-type bindings loaded from the
-// JSON config file. These bindings override the default built-in type mappings.
+// ClientConfig is the parsed config.jsonc: scalar-to-Go-type bindings (which
+// override the built-in mappings) and the nullable-input representation.
+// Unknown top-level keys are ignored.
 type ClientConfig struct {
 	Bindings typegql.TypeMap `json:"bindings"`
+	// Inputs configures how nullable input fields are generated.
+	Inputs InputsConfig `json:"inputs"`
 }
 
 // Generator orchestrates the entire Go SDK generation process. It holds the
@@ -33,6 +38,7 @@ type Generator struct {
 	writer       *writer.Writer      // writes formatted Go files to the output directory
 	clientConfig *ClientConfig       // user-specified scalar bindings from config.jsonc
 	templates    *templater.Template // compiled Go code generation templates
+	pruned       []string            // result of the last prune, see PrunedFiles
 }
 
 // New creates a new Generator by validating the config, loading the client
@@ -49,14 +55,16 @@ func New(config *Config) (*Generator, error) {
 	}
 
 	if clientConfig == nil {
-		return nil, fmt.Errorf("client config is nil")
+		return nil, errors.New("client config is nil")
 	}
 
-	// Parse schema
-	// schema, err := parseSchemaFile(config.SchemaPath)
 	schema, err := schemagql.GetSchema(schemagql.StringList{config.SchemaPath})
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse schema: %w", err)
+	}
+
+	if err := validateInputsConfig(clientConfig.Inputs, schema); err != nil {
+		return nil, err
 	}
 
 	typeMapEntryMap := typegql.Merge(typegql.BuiltInTypes(), clientConfig.Bindings)
@@ -70,13 +78,14 @@ func New(config *Config) (*Generator, error) {
 		config:       config,
 		schema:       schema,
 		clientConfig: clientConfig,
-		// typeMapper: NewTypeMapper(),
-		writer:    writer.NewWriter(config.OutputDir),
-		templates: templates,
+		writer:       writer.NewWriter(config.OutputDir),
+		templates:    templates,
 	}, nil
 }
 
-// GetSchema returns the parsed schema
+// GetSchema returns the parsed, validated schema the generator renders from.
+// The returned value is shared, not a copy: callers must not mutate it
+// between New and Generate.
 func (g *Generator) GetSchema() *ast.Schema {
 	return g.schema
 }
@@ -93,12 +102,6 @@ func (g *Generator) Generate() error {
 	if err := g.writer.EnsureDir(); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
-
-	// Generate go.mod
-	// if err := g.writer.WriteGoMod(g.config.ModulePath, g.config.PackageName); err != nil {
-	// 	return fmt.Errorf("failed to write go.mod: %w", err)
-	// }
-	// fmt.Println("Generated: go.mod")
 
 	// Generate scalars
 	if err := g.generateScalars(); err != nil {
@@ -154,54 +157,73 @@ func (g *Generator) Generate() error {
 	}
 	fmt.Println("Generated: batch/batch.go")
 
-	// // Generate inputs
-	// if err := g.generateInputs(); err != nil {
-	// 	return fmt.Errorf("failed to generate inputs: %w", err)
-	// }
-	// fmt.Println("  Generated: inputs.go")
-
-	// Generate client
-	// if err := g.generateClient(); err != nil {
-	// 	return fmt.Errorf("failed to generate client: %w", err)
-	// }
-	// fmt.Println("  Generated: client.go")
-
-	// Generate builder files (separate files for each query/mutation)
-	// if err := g.generateBuilderFiles(); err != nil {
-	// 	return fmt.Errorf("failed to generate builder files: %w", err)
-	// }
+	if g.config.Prune {
+		pruned, err := g.writer.Prune(g.config.PruneDryRun)
+		if err != nil {
+			return err
+		}
+		g.pruned = pruned
+		verb := "Pruned"
+		if g.config.PruneDryRun {
+			verb = "Would prune"
+		}
+		for _, f := range pruned {
+			fmt.Printf("%s: %s\n", verb, f)
+		}
+	}
 
 	fmt.Printf("SDK generated successfully in %s\n", g.config.OutputDir)
 	return nil
+}
+
+// PrunedFiles returns the slash-separated paths (relative to OutputDir) that
+// the last Generate deleted — or, with Config.PruneDryRun, would have
+// deleted. Empty unless Config.Prune is set.
+func (g *Generator) PrunedFiles() []string {
+	return g.pruned
 }
 
 // generateBuilderFiles renders the builder/builder.go file that re-exports the
 // base builder types from the builder package into the generated SDK.
 func (g *Generator) generateBuilderFiles() error {
 	b := bytes.NewBuffer(nil)
-	err := g.templates.ExecuteTemplate(b, "builder", map[string]interface{}{
-		"Config":      g.config,
-		"PackageName": "builder",
-	})
+	err := g.templates.ExecuteTemplate(b, "builder", packageTemplateData{PackageName: pkgBuilder})
 	if err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
 	content := b.String()
-	return g.writer.WriteFile("builder/builder.go", content)
+	if err := g.writer.WriteFile(pkgBuilder+"/builder.go", content); err != nil {
+		return err
+	}
+	// Every operation and selector imports builder/, so its guard stops any
+	// pre-1.24 build of the SDK; inputs/ gets its own for SDKs used only
+	// for their input types.
+	return g.writeGoVersionGuard(pkgBuilder)
+}
+
+// minGoVersionGuardFile is the per-package file holding the minimum-Go guard.
+const minGoVersionGuardFile = "go_version_guard.go"
+
+// writeGoVersionGuard emits <pkg>/go_version_guard.go: a `//go:build !go1.24`
+// file that fails to compile on toolchains older than Go 1.24, so the SDK
+// can never be built where `omitzero` is silently ignored.
+func (g *Generator) writeGoVersionGuard(pkg string) error {
+	var b bytes.Buffer
+	if err := g.templates.ExecuteTemplate(&b, "go_guard", packageTemplateData{PackageName: pkg}); err != nil {
+		return fmt.Errorf("failed to execute go_guard template: %w", err)
+	}
+	return g.writer.WriteFile(pkg+"/"+minGoVersionGuardFile, b.String())
 }
 
 // generateGraphQLClientFiles renders graphqlclient/graphqlclient.go into the
 // generated SDK so users don't need an external dependency for the HTTP client.
 func (g *Generator) generateGraphQLClientFiles() error {
 	b := bytes.NewBuffer(nil)
-	err := g.templates.ExecuteTemplate(b, "graphqlclient", map[string]interface{}{
-		"Config":      g.config,
-		"PackageName": "graphqlclient",
-	})
+	err := g.templates.ExecuteTemplate(b, "graphqlclient", packageTemplateData{PackageName: pkgGraphQLClient})
 	if err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
-	return g.writer.WriteFile("graphqlclient/graphqlclient.go", b.String())
+	return g.writer.WriteFile(pkgGraphQLClient+"/graphqlclient.go", b.String())
 }
 
 // generateBatchFiles renders batch/batch.go into the generated SDK. The batch
@@ -210,18 +232,12 @@ func (g *Generator) generateGraphQLClientFiles() error {
 // packages so it's fully self-contained.
 func (g *Generator) generateBatchFiles() error {
 	rootPkg := strings.TrimSuffix(g.config.Package, "/")
-	if rootPkg == "" {
-		rootPkg = "github.com/ubgo/gqlkit/gqlkit/sdk"
-	}
 	b := bytes.NewBuffer(nil)
-	err := g.templates.ExecuteTemplate(b, "batch", map[string]interface{}{
-		"Config":      g.config,
-		"RootPackage": rootPkg,
-	})
+	err := g.templates.ExecuteTemplate(b, "batch", batchTemplateData{RootPackage: rootPkg})
 	if err != nil {
 		return fmt.Errorf("failed to execute batch template: %w", err)
 	}
-	return g.writer.WriteFile("batch/batch.go", b.String())
+	return g.writer.WriteFile(pkgBatch+"/batch.go", b.String())
 }
 
 // generateScalars builds scalar type aliases (e.g. type DateTime = time.Time)
@@ -229,18 +245,17 @@ func (g *Generator) generateBatchFiles() error {
 func (g *Generator) generateScalars() error {
 	scalarData := buildSchemaScalarMap(g.schema, g.clientConfig.Bindings)
 	b := bytes.NewBuffer(nil)
-	err := g.templates.ExecuteTemplate(b, "scalar", map[string]interface{}{
-		"Config":  g.config,
-		"Scalars": scalarData.SchemaScalarMap,
-		"Imports": scalarData.Imports,
-		"Package": "scalars",
+	err := g.templates.ExecuteTemplate(b, "scalar", scalarsTemplateData{
+		headerData: headerData{Package: pkgScalars},
+		Scalars:    scalarData.SchemaScalarMap,
+		Imports:    scalarData.Imports,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
 	content := b.String()
 
-	return g.writer.WriteFile("scalars/scalars.go", content)
+	return g.writer.WriteFile(pkgScalars+"/scalars.go", content)
 }
 
 // EnumDef represents a single GraphQL enum type with its values, ready for
@@ -251,10 +266,17 @@ type EnumDef struct {
 	EnumValues  []EnumValueDef
 }
 
-// EnumValueDef represents a single value within a GraphQL enum.
+// EnumValueDef represents a single value within a GraphQL enum. Name is the
+// GraphQL value verbatim (the wire string); enums.tmpl derives the Go constant
+// name as <EnumName><PascalCase(Name)>.
 type EnumValueDef struct {
 	Name        string
 	Description string
+	// GoName is the unique Go constant name. Constants of every enum share
+	// the enums package scope with the enum type names, so values differing
+	// only in case (ACTIVE / active) or colliding with a type name get "_"
+	// appended in declaration order (see naming.go).
+	GoName string
 }
 
 // EnumDefMap maps enum names to their definitions.
@@ -263,7 +285,6 @@ type EnumDefMap map[string]EnumDef
 // generateEnums collects all non-built-in enum types from the schema,
 // sorts them alphabetically, and writes enums/enums.go via the enums template.
 func (g *Generator) generateEnums() error {
-
 	enumDefMap := make(EnumDefMap)
 	for _, def := range g.schema.Types {
 		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
@@ -277,8 +298,6 @@ func (g *Generator) generateEnums() error {
 				Name:        exportName(def.Name),
 				Description: def.Description,
 			}
-			// goutil.PrintToJSON(def)
-			// fmt.Println(def.Name)
 			for _, val := range def.EnumValues {
 				enumDef.EnumValues = append(enumDef.EnumValues, EnumValueDef{
 					Name:        val.Name,
@@ -298,25 +317,28 @@ func (g *Generator) generateEnums() error {
 		return enumList[i].Name < enumList[j].Name
 	})
 
+	// One identifier scope for the whole enums package: type names first
+	// (they never change), then each enum's values in declaration order.
+	names := newNameClaimer()
+	for _, e := range enumList {
+		names.claim(e.Name)
+	}
+	for i := range enumList {
+		for j := range enumList[i].EnumValues {
+			v := &enumList[i].EnumValues[j]
+			v.GoName = names.claim(enumList[i].Name + templater.PascalCase(v.Name))
+		}
+	}
+
 	b := bytes.NewBuffer(nil)
-	err := g.templates.ExecuteTemplate(b, "enums", map[string]interface{}{
-		"Config":  g.config,
-		"Enums":   enumList,
-		"Package": "enums",
+	err := g.templates.ExecuteTemplate(b, "enums", enumsTemplateData{
+		headerData: headerData{Package: pkgEnums},
+		Enums:      enumList,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
 	content := b.String()
 
-	return g.writer.WriteFile("enums/enums.go", content)
+	return g.writer.WriteFile(pkgEnums+"/enums.go", content)
 }
-
-// extractLocalPackageName extracts the local package name from an import path
-// e.g., "testsdk/api" -> "api", "mypackage" -> "mypackage"
-// func extractLocalPackageName(importPath string) string {
-// 	if idx := strings.LastIndex(importPath, "/"); idx != -1 {
-// 		return importPath[idx+1:]
-// 	}
-// 	return importPath
-// }

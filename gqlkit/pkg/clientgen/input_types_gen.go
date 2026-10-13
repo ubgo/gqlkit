@@ -3,151 +3,134 @@ package clientgen
 import (
 	"bytes"
 	"fmt"
-	"github.com/ubgo/gqlkit/gqlkit/pkg/util"
-	"sort"
 	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-// InputTypeDef holds the metadata for a Go struct generated from a GraphQL
-// InputObject type. Input types are used as arguments to mutations and queries.
-type InputTypeDef struct {
-	Name        string
-	Description string
-	Fields      []FieldDef
-	IsInterface bool
+// isGeneratedInputType reports whether a schema definition gets a struct in
+// inputs/: every user-defined input object.
+func isGeneratedInputType(def *ast.Definition) bool {
+	return def.Kind == ast.InputObject && !def.BuiltIn && !strings.HasPrefix(def.Name, "__")
 }
-
-// InputFieldDef holds the metadata for a single field within a generated input struct.
-type InputFieldDef struct {
-	Name        string
-	Description string
-	GoType      string
-	JSONTag     string
-	OmitEmpty   bool
-}
-
-// InputTypeDefList is a sortable slice of InputTypeDef.
-type InputTypeDefList []InputTypeDef
 
 // generateInputTypes collects all GraphQL InputObject types from the schema,
-// converts them to Go struct definitions, and writes inputs/inputs.go.
+// converts them to Go struct definitions, and writes inputs/inputs.go. Input
+// fields share the struct-field mapping of object fields (graphQLToGoType),
+// including always-pointer nested inputs, so self-referencing inputs
+// (`input Filter { and: Filter }`) are legal Go.
 func (g *Generator) generateInputTypes() error {
 	typeDefMap := make(map[string]TypeDef)
 
 	for _, def := range g.schema.Types {
-		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
+		if !isGeneratedInputType(def) {
 			continue
 		}
-
-		// Skip Query, Mutation, Subscription root types
-		if def.Kind == ast.InputObject && (def.Name == "Query" || def.Name == "Mutation" || def.Name == "Subscription") {
-			continue
+		td := TypeDef{
+			Name:        exportName(def.Name),
+			Description: def.Description,
+			Fields:      g.buildFieldDefs(def),
 		}
-
-		if def.Kind == ast.InputObject {
-			// if def.Name != "AiModelOrder" {
-			// 	continue
-			// }
-			// fmt.Println("InputObject: ", def.Name)
-
-			typeDef := TypeDef{
-				Name:        exportName(def.Name),
-				Description: def.Description,
-				IsInterface: def.Kind == ast.Interface,
+		for _, f := range td.Fields {
+			if f.WireTag != f.JSONTag {
+				td.NeedsWireMarshal = true
 			}
-
-			// Interfaces only need the Is<Name>() method, not fields
-			if def.Kind == ast.Interface {
-				typeDefMap[def.Name] = typeDef
-				continue
-			}
-
-			for _, field := range def.Fields {
-				if skipGenField(field.Name) {
-					continue
-				}
-				goType := g.graphQLToGoType(field.Type)
-				omitempty := !field.Type.NonNull
-				jsonName := field.Name // GraphQL field names are already camelCase
-
-				var jsonTag string
-				if omitempty {
-					jsonTag = fmt.Sprintf("`json:\"%s,omitempty\"`", jsonName)
-				} else {
-					jsonTag = fmt.Sprintf("`json:\"%s\"`", jsonName)
-				}
-
-				fieldDef := FieldDef{
-					Name:        util.ToPascalCase(field.Name),
-					Description: field.Description,
-					GoType:      goType,
-					JSONTag:     jsonTag,
-					OmitEmpty:   omitempty,
-				}
-
-				typeDef.Fields = append(typeDef.Fields, fieldDef)
-			}
-
-			typeDefMap[def.Name] = typeDef
 		}
+		typeDefMap[def.Name] = td
 	}
-
-	// Convert map to sorted slice for deterministic output
-	typeList := make([]TypeDef, 0, len(typeDefMap))
-	for _, typeDef := range typeDefMap {
-		typeList = append(typeList, typeDef)
-	}
-	sort.Slice(typeList, func(i, j int) bool {
-		return typeList[i].Name < typeList[j].Name
-	})
-
-	// Collect imports
-	imports := g.collectInputTypeImports()
-
-	// goutil.PrintToJSON(imports)
-
-	// goutil.PrintToJSON(g.clientConfig.Bindings)
+	types := sortedTypeDefs(typeDefMap)
 
 	b := bytes.NewBuffer(nil)
-	err := g.templates.ExecuteTemplate(b, "inputs", map[string]interface{}{
-		"Config":  g.config,
-		"Types":   typeList,
-		"Imports": imports,
-		"Package": "inputs",
+	err := g.templates.ExecuteTemplate(b, "inputs", typesTemplateData{
+		headerData: headerData{Package: pkgInputs},
+		Types:      types,
+		Imports:    g.collectInputTypeImports(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
-	content := b.String()
 
-	return g.writer.WriteFile("inputs/inputs.go", content)
+	if err := g.writer.WriteFile(pkgInputs+"/inputs.go", b.String()); err != nil {
+		return err
+	}
+
+	if err := g.generateInputWireMarshal(types); err != nil {
+		return err
+	}
+	if err := g.writeGoVersionGuard(pkgInputs); err != nil {
+		return err
+	}
+
+	// opt.go is always emitted (not only when some field uses
+	// OptionalOpt) so Opt/Some/Null are a stable part of every SDK's API and
+	// switching a field's mode never adds or removes a file.
+	var opt bytes.Buffer
+	if err := g.templates.ExecuteTemplate(&opt, "inputs_opt", packageTemplateData{PackageName: pkgInputs}); err != nil {
+		return fmt.Errorf("failed to execute opt template: %w", err)
+	}
+	return g.writer.WriteFile(pkgInputs+"/opt.go", opt.String())
 }
 
 // collectInputTypeImports collects the Go import paths required by input type
-// fields (e.g. scalar packages, enum packages).
+// fields (e.g. scalar packages, enum packages). It skips exactly the fields
+// buildFieldDefs skips, so a placeholder field (`_: DateTime`) cannot leave
+// behind an unused import.
 func (g *Generator) collectInputTypeImports() []string {
 	imports := make(map[string]bool)
-
 	for _, def := range g.schema.Types {
-		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
+		if !isGeneratedInputType(def) {
 			continue
 		}
+		for _, field := range def.Fields {
+			if skipGenField(field.Name) {
+				continue
+			}
+			g.checkTypeForImports(field.Type, imports)
+		}
+	}
+	return sortedImports(imports)
+}
 
-		if def.Kind == ast.InputObject {
-			for _, field := range def.Fields {
-				g.checkTypeForImports(field.Type, imports)
+// generateInputWireMarshal writes inputs/inputs_json.go: a go1.24-only
+// MarshalJSON for every input type with NeedsWireMarshal, encoding through a
+// tag-only copy of the struct (WireTag) so a non-nil empty slice is sent as
+// []. The file is always written (empty of methods when no type needs one)
+// so a stale copy can never linger with methods for fields that changed.
+func (g *Generator) generateInputWireMarshal(types []TypeDef) error {
+	var needed []TypeDef
+	importSet := map[string]bool{}
+	for _, td := range types {
+		if !td.NeedsWireMarshal {
+			continue
+		}
+		needed = append(needed, td)
+	}
+	if len(needed) > 0 {
+		importSet["encoding/json"] = true
+		for _, def := range g.schema.Types {
+			if !isGeneratedInputType(def) {
+				continue
+			}
+			for _, td := range needed {
+				if td.Name != exportName(def.Name) {
+					continue
+				}
+				for _, field := range def.Fields {
+					if !skipGenField(field.Name) {
+						g.checkTypeForImports(field.Type, importSet)
+					}
+				}
 			}
 		}
 	}
-
-	// Convert to sorted slice
-	importList := make([]string, 0, len(imports))
-	for imp := range imports {
-		importList = append(importList, imp)
+	var b bytes.Buffer
+	err := g.templates.ExecuteTemplate(&b, "inputs_json", typesTemplateData{
+		headerData: headerData{Package: pkgInputs},
+		Types:      needed,
+		Imports:    sortedImports(importSet),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to execute inputs_json template: %w", err)
 	}
-	sort.Strings(importList)
-
-	return importList
+	return g.writer.WriteFile(pkgInputs+"/inputs_json.go", b.String())
 }

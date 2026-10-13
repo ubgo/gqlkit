@@ -3,8 +3,6 @@ package clientgents
 import (
 	"bytes"
 	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -16,36 +14,22 @@ type TSEnumDef struct {
 	Values []string
 }
 
-// generateEnums collects all non-built-in enum types from the schema, sorts
-// them alphabetically, and writes enums/index.ts via the ts_enums template.
+// generateEnums writes enums/index.ts: one string enum per user-declared
+// GraphQL enum, member name and value both the GraphQL value verbatim.
 func (g *Generator) generateEnums() error {
 	var enums []TSEnumDef
-
-	for _, def := range g.schema.Types {
-		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
-			continue
-		}
-		if def.Kind != ast.Enum {
-			continue
-		}
-
-		enumDef := TSEnumDef{
-			Name: def.Name,
-		}
+	for _, def := range g.generatedDefs(ast.Enum) {
+		enumDef := TSEnumDef{Name: def.Name}
 		for _, val := range def.EnumValues {
 			enumDef.Values = append(enumDef.Values, val.Name)
 		}
 		enums = append(enums, enumDef)
 	}
 
-	sort.Slice(enums, func(i, j int) bool {
-		return enums[i].Name < enums[j].Name
-	})
-
 	var buf bytes.Buffer
 	if err := g.templates.ExecuteTemplate(&buf, "ts_enums.tmpl", enums); err != nil {
 		return fmt.Errorf("failed to execute enums template: %w", err)
 	}
 
-	return g.writer.WriteFile("enums/index.ts", buf.String())
+	return g.writer.WriteFile(dirEnums+"/"+indexFile, buf.String())
 }

@@ -139,17 +139,17 @@ func TestGenerateKitchenSink(t *testing.T) {
 	types := read(t, dir, "types/index.ts")
 	mustContain(t, types, "types",
 		"export interface User {",
-		"id: string;",        // ID! -> non-optional string
-		"role: Role;",        // enum, non-null
-		"friends?: User[];",  // [User!] nullable -> optional list
-		"posts: Post[];",     // [Post!]! -> required list
-		"bestFriend?: User;", // nullable object -> optional
+		"id: string;",               // ID! -> non-optional string
+		"role: Role;",               // enum, non-null
+		"friends?: User[] | null;",  // [User!] nullable -> optional list
+		"posts: Post[];",            // [Post!]! -> required list
+		"bestFriend?: User | null;", // nullable object -> optional
 		"export interface Post {",
-		"body?: string;",       // nullable String
-		"createdAt: DateTime;", // custom scalar
-		"meta?: jsonb;",        // custom lowercase scalar
+		"body?: string | null;", // nullable String
+		"createdAt: DateTime;",  // custom scalar
+		"meta?: jsonb | null;",  // custom lowercase scalar
 		"export interface Category {",
-		"parent?: Category;", // recursion
+		"parent?: Category | null;", // recursion
 		"children: Category[];",
 	)
 	// Query/Mutation roots must NOT leak into types.
@@ -158,34 +158,34 @@ func TestGenerateKitchenSink(t *testing.T) {
 	}
 	// enum + scalar imports present
 	mustContain(t, types, "types imports",
-		`from "../enums"`, `from "../scalars"`)
+		`from "../enums/index.js"`, `from "../scalars/index.js"`)
 
 	// --- inputs ---
 	inputs := read(t, dir, "inputs/index.ts")
 	mustContain(t, inputs, "inputs",
 		"export interface PostFilter {",
-		"q?: string;",       // nullable String
-		"tags?: string[];",  // [String!] nullable
-		"role?: Role;",      // enum ref
-		"after?: DateTime;", // custom scalar ref
+		"q?: string | null;",       // nullable String
+		"tags?: string[] | null;",  // [String!] nullable
+		"role?: Role | null;",      // enum ref
+		"after?: DateTime | null;", // custom scalar ref
 	)
 
 	// --- field selector: scalar leaf vs nested object callback vs recursion ---
 	userFields := read(t, dir, "fields/user.ts")
 	mustContain(t, userFields, "fields/user.ts",
 		"export class UserFields",
-		`import { FieldSelection } from "../builder";`,
+		`import { FieldSelection } from "../builder/index.js";`,
 		"id():", // scalar leaf
-		`this.selection.addField("id");`,
+		`this.#selection.addField("id");`,
 		"role():",                   // enum scalar leaf
 		"friends<U extends object>", // self-ref object -> callback
-		`this.selection.addChild("friends", child);`,
-		"posts<U extends object>",               // object list callback
-		`import { PostFields } from "./post";`,  // cross-type import
-		`import type { Role } from "../enums";`, // enum import for scalar field
+		`this.#selection.addChild("friends", child);`,
+		"posts<U extends object>",                        // object list callback
+		`import { PostFields } from "./post.js";`,        // cross-type import
+		`import type { Role } from "../enums/index.js";`, // enum import for scalar field
 	)
 	// self-reference must NOT self-import (bug 871c081 guard).
-	if strings.Contains(userFields, `from "./user"`) {
+	if strings.Contains(userFields, `from "./user.js"`) {
 		t.Errorf("fields/user.ts self-imports UserFields:\n%s", userFields)
 	}
 
@@ -194,7 +194,7 @@ func TestGenerateKitchenSink(t *testing.T) {
 		"parent<U extends object>", // recursion as object callback
 		"children<U extends object>",
 	)
-	if strings.Contains(categoryFields, `from "./category"`) {
+	if strings.Contains(categoryFields, `from "./category.js"`) {
 		t.Errorf("fields/category.ts self-imports:\n%s", categoryFields)
 	}
 
@@ -208,7 +208,7 @@ func TestGenerateKitchenSink(t *testing.T) {
 		"export class MeBuilder",
 		"select<T extends object>",
 		"UserFields",
-		`import { BaseBuilder, GraphQLClient } from "../builder";`,
+		`import { BaseBuilder, GraphQLClient } from "../builder/index.js";`,
 	)
 
 	// user(id: ID!): User -> nullable object return, arg present
@@ -216,15 +216,16 @@ func TestGenerateKitchenSink(t *testing.T) {
 	mustContain(t, userQuery, "queries/user.ts",
 		"export class UserBuilder",
 		"id(v: string): this",
-		`this.builder.setArg("id", v, "ID!");`,
-		"User | null", // nullable object default generic
+		`this.#builder.setArg("id", v, "ID!");`,
+		"UserBuilder<TResult = SelectionRequired>", // object return: select() first
+		"select<T extends object>(selector: (f: UserFields) => UserFields<T>): UserBuilder<T | null>",
 	)
 
 	// posts query: list return -> select wrapper T[]
 	postsQuery := read(t, dir, "queries/posts.ts")
 	mustContain(t, postsQuery, "queries/posts.ts",
-		"PostFilter", // input import + arg type
-		"Post[]",     // list return
+		"PostFilter",        // input import + arg type
+		"PostsBuilder<T[]>", // list return
 	)
 
 	// scalar-return query has NO select method (HasSelect=false path)
@@ -232,7 +233,7 @@ func TestGenerateKitchenSink(t *testing.T) {
 	if strings.Contains(scalarQuery, "select<T extends object>") {
 		t.Errorf("scalar-return query must not have select():\n%s", scalarQuery)
 	}
-	mustContain(t, scalarQuery, "queries/scalar-thing.ts", "async execute(): Promise<")
+	mustContain(t, scalarQuery, "queries/scalar-thing.ts", "async execute(request?: RequestOptions): Promise<")
 
 	// --- query root + index ---
 	mustContain(t, read(t, dir, "queries/root.ts"), "queries/root.ts",

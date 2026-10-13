@@ -11,8 +11,10 @@ import (
 
 {{ range .Types }}
 {{- if .Description }}
-{{ formatDesc .Name .Description }}{{ else }}
-{{- if .IsInterface }}
+{{ trimSpace (formatDesc .Name .Description) }}{{ else }}
+{{- if .IsUnion }}
+// {{ .Name }} is a GraphQL union type
+{{- else if .IsInterface }}
 // {{ .Name }} is a GraphQL interface type
 {{- else }}
 // {{ .Name }} represents the GraphQL type {{ .Name }}
@@ -21,6 +23,58 @@ import (
 {{- if .IsInterface }}
 type {{ .Name }} interface {
 	Is{{ .Name }}()
+}
+
+// {{ .ValueName }} holds one {{ .Name }} result, decoded into its concrete type
+// by the __typename the {{ .Name }}Fields selector always requests.
+//
+// Value is the concrete *T (type-switch on it), or nil when the result was
+// null or its __typename is not a type this SDK knows — a newer server may add
+// members. Typename and Raw always keep what the server sent, so unknown
+// members are never lost.
+type {{ .ValueName }} struct {
+	Typename string
+	Value    {{ .Name }}
+	Raw      json.RawMessage
+}
+
+// UnmarshalJSON dispatches on __typename; it never fails on an unknown one.
+func (v *{{ .ValueName }}) UnmarshalJSON(data []byte) error {
+	*v = {{ .ValueName }}{}
+	if string(data) == "null" {
+		return nil
+	}
+	var probe struct {
+		Typename string `json:"__typename"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return err
+	}
+	v.Typename = probe.Typename
+	v.Raw = append(json.RawMessage(nil), data...)
+	switch probe.Typename {
+{{- range .PossibleTypes }}
+	case "{{ .TypeName }}":
+		x := new({{ .GoName }})
+		if err := json.Unmarshal(data, x); err != nil {
+			return err
+		}
+		v.Value = x
+{{- end }}
+	}
+	return nil
+}
+
+// MarshalJSON re-encodes the original JSON when present (lossless round
+// trip), else the concrete value, else null.
+func (v {{ .ValueName }}) MarshalJSON() ([]byte, error) {
+	if v.Raw != nil {
+		return v.Raw, nil
+	}
+	if v.Value != nil {
+		return json.Marshal(v.Value)
+	}
+	return []byte("null"), nil
 }
 {{- else }}
 type {{ .Name }} struct {
@@ -37,6 +91,12 @@ type {{ .Name }} struct {
 	{{ .Name }} {{ .GoType }} {{ .JSONTag }}
 {{- end }}
 }
+{{- $self := .Name }}
+{{- range .Implements }}
+
+// Is{{ . }} marks {{ $self }} as a possible {{ . }}.
+func ({{ $self }}) Is{{ . }}() {}
+{{- end }}
 {{- end }}
 
 {{ end }}

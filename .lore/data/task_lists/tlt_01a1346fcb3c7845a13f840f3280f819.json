@@ -1,0 +1,11 @@
+{
+  "_table": "task_lists",
+  "_v": 1,
+  "body": "GitHub issue fixes for gqlkit",
+  "created_at": "2026-10-13T08:45:04.188528000Z",
+  "id": "tlt_01a1346fcb3c7845a13f840f3280f819",
+  "project_id": "prj_01a1346ce1c872b386a5de312e37c4ea",
+  "status_str": "active",
+  "title": "Bug fixes",
+  "updated_at": "2026-10-13T08:45:04.188529000Z"
+}

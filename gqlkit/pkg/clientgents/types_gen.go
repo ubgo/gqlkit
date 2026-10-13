@@ -3,14 +3,13 @@ package clientgents
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
 // TSTypeDef holds the metadata for a single TypeScript interface generated from
-// a GraphQL object or interface type.
+// a GraphQL object, interface or input object type.
 type TSTypeDef struct {
 	Name   string
 	Fields []TSFieldDef
@@ -18,10 +17,9 @@ type TSTypeDef struct {
 
 // TSFieldDef holds the metadata for a single field within a TS interface.
 type TSFieldDef struct {
-	Name     string // camelCase field name
-	TypeStr  string // full "field?: Type;" or "field: Type;" line
-	Optional bool
-	TSType   string
+	Name     string // GraphQL field name, used verbatim as the TS property name
+	Optional bool   // nullable in GraphQL → rendered as an optional `name?:` property
+	TSType   string // TS type text from fieldTSType
 }
 
 // TSTypesData is the template data passed to ts_types.tmpl to generate types/index.ts.
@@ -29,54 +27,46 @@ type TSTypesData struct {
 	EnumImports   []string
 	ScalarImports []string
 	Types         []TSTypeDef
+	Unions        []TSUnionDef
 }
 
-// generateTypes collects all non-built-in object and interface types from the
-// schema, converts them to TSTypeDef structs, and writes types/index.ts.
-func (g *Generator) generateTypes() error {
-	var types []TSTypeDef
+// TSUnionDef is one GraphQL union, rendered as a TS union alias of its
+// members' interfaces so fields typed with it are not `any`.
+type TSUnionDef struct {
+	Name    string
+	Members string // member names joined with " | ", sorted
+}
 
-	for _, def := range g.schema.Types {
-		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
-			continue
-		}
-		if def.Kind == ast.Object && (def.Name == "Query" || def.Name == "Mutation" || def.Name == "Subscription") {
-			continue
-		}
-		if def.Kind != ast.Object && def.Kind != ast.Interface {
-			continue
-		}
-
-		typeDef := TSTypeDef{
-			Name: def.Name,
-		}
-
-		for _, field := range def.Fields {
-			if skipGenField(field.Name) {
-				continue
-			}
-			fieldName := field.Name
-			tsType := g.fieldTSType(field.Type)
-			optional := !field.Type.NonNull
-
-			typeDef.Fields = append(typeDef.Fields, TSFieldDef{
-				Name:     fieldName,
-				Optional: optional,
-				TSType:   tsType,
+// buildTypeDefs converts definitions to interface data, one TSFieldDef per
+// emitted field. Shared by types/index.ts and inputs/index.ts; output object
+// and interface fields honour the NullMode config, input fields do not.
+func (g *Generator) buildTypeDefs(defs []*ast.Definition) []TSTypeDef {
+	typeDefs := make([]TSTypeDef, 0, len(defs))
+	for _, def := range defs {
+		td := TSTypeDef{Name: def.Name}
+		for _, field := range emittedFields(def) {
+			td.Fields = append(td.Fields, TSFieldDef{
+				Name:     field.Name,
+				Optional: !field.Type.NonNull,
+				TSType:   g.fieldTypeFor(def, field),
 			})
 		}
-
-		types = append(types, typeDef)
+		typeDefs = append(typeDefs, td)
 	}
+	return typeDefs
+}
 
-	sort.Slice(types, func(i, j int) bool {
-		return types[i].Name < types[j].Name
-	})
-
+// generateTypes writes types/index.ts: one interface per object and
+// interface type (operation roots excluded, see isRootType).
+func (g *Generator) generateTypes() error {
+	defs := g.objectTypeDefs()
 	data := TSTypesData{
-		EnumImports:   g.collectTypeEnumImports(),
-		ScalarImports: g.collectTypeScalarImports(),
-		Types:         types,
+		EnumImports:   g.collectEnumImportNames(defs),
+		ScalarImports: g.collectScalarImportNames(defs),
+		Types:         g.buildTypeDefs(defs),
+	}
+	for _, u := range g.generatedDefs(ast.Union) {
+		data.Unions = append(data.Unions, TSUnionDef{Name: u.Name, Members: strings.Join(g.possibleTypeNames(u), " | ")})
 	}
 
 	var buf bytes.Buffer
@@ -84,5 +74,14 @@ func (g *Generator) generateTypes() error {
 		return fmt.Errorf("failed to execute types template: %w", err)
 	}
 
-	return g.writer.WriteFile("types/index.ts", buf.String())
+	return g.writer.WriteFile(dirTypes+"/"+indexFile, buf.String())
+}
+
+// fieldTypeFor renders field of def: an output field (object/interface)
+// through its NullMode, an input field with the default " | null".
+func (g *Generator) fieldTypeFor(def *ast.Definition, field *ast.FieldDefinition) string {
+	if def.Kind == ast.InputObject {
+		return g.fieldTSType(field.Type)
+	}
+	return outputTSType(field.Type, g.namedTSType(getBaseTypeName(field.Type)), g.outputNullSuffix(def.Name, field.Name))
 }

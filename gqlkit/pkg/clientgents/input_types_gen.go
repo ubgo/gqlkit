@@ -3,8 +3,6 @@ package clientgents
 import (
 	"bytes"
 	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -16,65 +14,55 @@ type TSInputsData struct {
 	EnumImports   []string
 	ScalarImports []string
 	Types         []TSTypeDef
+	// Codec only (empty without one): encoders imported from scalars/ and
+	// one InputEncodePlan per input type that reaches an encoder.
+	EncoderImports []string
+	Plans          []TSEncodePlan
 }
 
-// generateInputTypes collects all GraphQL InputObject types, converts them to
-// TSTypeDef structs, gathers required imports, and writes inputs/index.ts.
+// TSEncodePlan is the generated InputEncodePlan constant of one input type:
+// only fields whose values need encoding are listed (the runtime copies the
+// rest as-is).
+type TSEncodePlan struct {
+	Name   string // e.g. "TodoFilterEncodePlan"
+	Fields []TSEncodePlanField
+}
+
+// TSEncodePlanField is one entry of an encode plan.
+type TSEncodePlanField struct {
+	Field string // input field name
+	Expr  string // ArgEncoder expression (see argEncoderExpr)
+}
+
+// generateInputTypes writes inputs/index.ts: one interface per GraphQL input
+// object, with the enum and scalar imports its fields need.
 func (g *Generator) generateInputTypes() error {
-	var inputs []TSTypeDef
-
-	for _, def := range g.schema.Types {
-		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
-			continue
-		}
-		if def.Kind != ast.InputObject {
-			continue
-		}
-
-		typeDef := TSTypeDef{
-			Name: def.Name,
-		}
-
-		for _, field := range def.Fields {
-			fieldName := field.Name
-			tsType := g.fieldTSType(field.Type)
-			optional := !field.Type.NonNull
-
-			typeDef.Fields = append(typeDef.Fields, TSFieldDef{
-				Name:     fieldName,
-				Optional: optional,
-				TSType:   tsType,
-			})
-		}
-
-		inputs = append(inputs, typeDef)
-	}
-
-	sort.Slice(inputs, func(i, j int) bool {
-		return inputs[i].Name < inputs[j].Name
-	})
-
-	// Collect needed imports
-	var inputDefs []*ast.Definition
-	for _, def := range g.schema.Types {
-		if def.BuiltIn || strings.HasPrefix(def.Name, "__") {
-			continue
-		}
-		if def.Kind == ast.InputObject {
-			inputDefs = append(inputDefs, def)
-		}
-	}
-
+	defs := g.generatedDefs(ast.InputObject)
 	data := TSInputsData{
-		EnumImports:   g.collectEnumImportNames(inputDefs),
-		ScalarImports: g.collectScalarImportNames(inputDefs),
-		Types:         inputs,
+		EnumImports:   g.collectEnumImportNames(defs),
+		ScalarImports: g.collectScalarImportNames(defs),
+		Types:         g.buildTypeDefs(defs),
 	}
+	encoders, plans := map[string]bool{}, map[string]bool{}
+	for _, def := range defs {
+		if !g.reachesEncoder(def.Name) {
+			continue
+		}
+		plan := TSEncodePlan{Name: def.Name + encodePlanSuffix}
+		for _, f := range emittedFields(def) {
+			if expr := g.argEncoderExpr(f.Type); expr != "" {
+				plan.Fields = append(plan.Fields, TSEncodePlanField{Field: f.Name, Expr: expr})
+				g.codecImportsFor([]*ast.Type{f.Type}, encoders, plans)
+			}
+		}
+		data.Plans = append(data.Plans, plan)
+	}
+	data.EncoderImports = sortedKeys(encoders)
 
 	var buf bytes.Buffer
 	if err := g.templates.ExecuteTemplate(&buf, "ts_inputs.tmpl", data); err != nil {
 		return fmt.Errorf("failed to execute inputs template: %w", err)
 	}
 
-	return g.writer.WriteFile("inputs/index.ts", buf.String())
+	return g.writer.WriteFile(dirInputs+"/"+indexFile, buf.String())
 }
