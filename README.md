@@ -300,7 +300,7 @@ Go and TypeScript, from the same schema. The Go and TypeScript SDKs expose the s
 Either point gqlkit at an existing `.graphql` SDL file, or fetch it from any live endpoint via introspection with `gqlkit-sdl fetch --url <endpoint>`.
 
 **Is it production-ready?**
-The generators have a two-layer test suite (unit tests on the type mapping plus end-to-end "generate and compile" guards) and CI on every push. The artifacts version independently via SemVer; see each [changelog](#versions-and-changelogs).
+The generators have a two-layer test suite (unit tests on the type mapping plus end-to-end "generate and compile" guards) and a CI workflow that runs on manual dispatch only; the local `task check` is the gate. The artifacts version independently via SemVer; see each [changelog](#versions-and-changelogs).
 
 ## Testing and coverage
 
