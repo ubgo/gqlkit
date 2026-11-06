@@ -1,4 +1,4 @@
-module github.com/khanakia/graphqlclient_go
+module github.com/ubgo/gqlkit
 
 go 1.25.5
 
