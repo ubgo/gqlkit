@@ -225,3 +225,42 @@ main().catch((e: unknown) => { console.error(e); server.close(); process.exitCod
 		"bad partial: data cleared | decodeError is ScalarCodecError: true",
 	)
 }
+
+// TestEncodePlanNameCollisions covers input types that already use a name
+// inputs/index.ts derives: input F's plan FEncodePlan next to an input
+// FEncodePlan, an input named InputEncodePlan (the runtime type the file
+// imports), and an input Input whose plan would take that import's name.
+// The derived names get "_" appended, the inputs keep theirs, and the SDK
+// must pass strict tsc under CommonJS and Node ESM.
+func TestEncodePlanNameCollisions(t *testing.T) {
+	sdl := `scalar DateTime
+input F { a: DateTime }
+input FEncodePlan { a: DateTime }
+input InputEncodePlan { a: DateTime }
+input Input { a: DateTime }
+type Query { f(x: F, y: FEncodePlan, z: InputEncodePlan, w: Input): Int }
+`
+	sdk := generateSDK(t, sdl, codecConfig)
+
+	mustContain(t, read(t, sdk, "inputs/index.ts"), "renamed plans and aliased plan type",
+		`import type { InputEncodePlan as InputEncodePlan_ } from "../builder/index.js";`,
+		"export interface FEncodePlan {",
+		"export interface InputEncodePlan {",
+		"export const FEncodePlan_: InputEncodePlan_ = {",
+		"export const FEncodePlanEncodePlan: InputEncodePlan_ = {",
+		"export const InputEncodePlanEncodePlan: InputEncodePlan_ = {",
+		"export const InputEncodePlan__: InputEncodePlan_ = {",
+		"/** Encodes F's codec-scalar fields when sent as a variable. */",
+	)
+	mustContain(t, read(t, sdk, "queries/f.ts"), "operation uses the renamed plans",
+		`this.#builder.setArg("x", v, "F", { input: () => FEncodePlan_ });`,
+		`this.#builder.setArg("w", v, "Input", { input: () => InputEncodePlan__ });`,
+	)
+
+	extra := map[string]string{"sdk/codecs.ts": codecModule}
+	for _, mode := range []tsModuleMode{tsModeCommonJS, tsModuleModes[2]} {
+		if out, err := runTSCMode(t, sdk, extra, mode); err != nil {
+			t.Fatalf("tsc (%s) failed: %v\n%s", mode.name, err, out)
+		}
+	}
+}

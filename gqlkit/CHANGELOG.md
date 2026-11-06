@@ -6,6 +6,14 @@ Tagged as `gqlkit@vX.Y.Z`. See releases at <https://github.com/ubgo/gqlkit/relea
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-11-06
+
+### Fixed
+- Go: generation no longer fails when a schema type already uses an interface or union wrapper's name. The Shopify Admin schema has union `SubscriptionDiscount` and object `SubscriptionDiscountValue`, and 0.14.0 stopped with `generated Go name collision: wrapper SubscriptionDiscountValue for UNION "SubscriptionDiscount" collides with schema type "SubscriptionDiscountValue"`. The wrapper now gets a `_` suffix (`SubscriptionDiscountValue_`) and the schema type keeps its name, following the existing collision rule. Every reference uses the new name: struct fields, operation results and list elements. `clientgen.ErrGoNameCollision` is no longer returned and is marked deprecated.
+- Go: a selector constructor no longer clashes with another type's selector. Object `NewTodo` (selector `NewTodoFields`) next to object `Todo` (constructor `NewTodoFields`) declared `NewTodoFields` twice; `Todo`'s selector is now `TodoFields_` with constructor `NewTodoFields_`, used by `On<Type>`, nested field selectors and `Select`.
+- `generate-ts` (TypeScript): with a scalar codec, an encode plan no longer clashes with an input type. Input `F` (plan `FEncodePlan`) next to input `FEncodePlan`, or an input named `InputEncodePlan`, failed `tsc` with duplicate identifiers. The plan now gets a `_` suffix (`FEncodePlan_`) and the runtime `InputEncodePlan` type is imported under an alias when an input takes its name. Input type names never change. A plan's doc comment now names its input type instead of the plan.
+- Schemas without such clashes generate exactly what 0.14.0 generated.
+
 ## [0.14.0] — 2026-10-13
 
 ### Breaking
@@ -164,6 +172,7 @@ Tagged as `gqlkit@vX.Y.Z`. See releases at <https://github.com/ubgo/gqlkit/relea
 - Stable download URLs (no version in artifact names).
 - Generated SDK structure: `types/`, `enums/`, `inputs/`, `scalars/`, `fields/`, `queries/`, `mutations/`, `builder/`.
 
+[0.14.1]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.14.1
 [0.14.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.14.0
 [0.10.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.10.0
 [0.9.0]: https://github.com/ubgo/gqlkit/releases/tag/gqlkit%40v0.9.0

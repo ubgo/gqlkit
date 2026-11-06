@@ -225,7 +225,7 @@ func (g *Generator) buildOperationBuilderData(spec opKindSpec, field *ast.FieldD
 	}
 
 	if isObjReturn {
-		data.SelectorName = exportName(returnTypeName) + "Fields"
+		data.SelectorName = g.selectorName(returnTypeName)
 	}
 
 	setters := argGoNames(field.Arguments)

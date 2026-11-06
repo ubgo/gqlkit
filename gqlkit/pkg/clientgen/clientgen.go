@@ -39,6 +39,7 @@ type Generator struct {
 	clientConfig *ClientConfig       // user-specified scalar bindings from config.jsonc
 	templates    *templater.Template // compiled Go code generation templates
 	pruned       []string            // result of the last prune, see PrunedFiles
+	derivedNames *derivedNames       // suffix-derived Go names, see derived_names.go
 }
 
 // New creates a new Generator by validating the config, loading the client

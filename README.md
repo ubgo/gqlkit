@@ -31,7 +31,7 @@ curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit-sdl/install.s
 By default the scripts install the latest release into `/usr/local/bin` (with `sudo` when that folder is not writable). Set `VERSION` to pin a release and `INSTALL_DIR` to install elsewhere without `sudo`:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit/install.sh | VERSION=v0.14.0 INSTALL_DIR=$HOME/.local/bin sh
+curl -sL https://raw.githubusercontent.com/ubgo/gqlkit/main/gqlkit/install.sh | VERSION=v0.14.1 INSTALL_DIR=$HOME/.local/bin sh
 ```
 
 Every command and flag, with real output and exit codes: [`gqlkit`](./docs/cli-reference.md#gqlkit) · [`gqlkit-sdl`](./docs/cli-reference.md#gqlkit-sdl).

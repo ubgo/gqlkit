@@ -594,7 +594,7 @@ export type SearchResult = Todo | User;
 **Output:** `inputs/index.ts`
 **Template:** `ts_inputs.tmpl`
 
-Same approach as types, with its own template (`ts_inputs.tmpl`), for `ast.InputObject` definitions. Nullable input fields are optional and accept `null` (`field?: T | null`), so a caller can omit a field or clear it explicitly. When a codec has an encoder, the file also exports an encode plan per input type (`TSEncodePlan`) that the runtime walks to encode nested values.
+Same approach as types, with its own template (`ts_inputs.tmpl`), for `ast.InputObject` definitions. Nullable input fields are optional and accept `null` (`field?: T | null`), so a caller can omit a field or clear it explicitly. When a codec has an encoder, the file also exports an encode plan per input type (`TSEncodePlan`) that the runtime walks to encode nested values. A plan is named `<Input>EncodePlan`; when an input type already has that name (input `F` next to input `FEncodePlan`), the plan gets a `_` suffix (`FEncodePlan_`), and when an input type is named `InputEncodePlan` the runtime type is imported under an alias (`InputEncodePlan_`). Input type names never change.
 
 #### Data Struct
 
@@ -610,6 +610,12 @@ type TSInputsData struct {
 	// one InputEncodePlan per input type that reaches an encoder.
 	EncoderImports []string
 	Plans          []TSEncodePlan
+	// PlanType is the local name of the runtime InputEncodePlan type:
+	// "InputEncodePlan", or an alias when an input type has that name.
+	PlanType string
+	// PlanImport is the import specifier for it: the bare name, or
+	// "InputEncodePlan as <PlanType>" when aliased.
+	PlanImport string
 }
 
 // TSEncodePlan is the generated InputEncodePlan constant of one input type:
@@ -617,6 +623,7 @@ type TSInputsData struct {
 // rest as-is).
 type TSEncodePlan struct {
 	Name   string // e.g. "TodoFilterEncodePlan"
+	Input  string // the input type it encodes, e.g. "TodoFilter"
 	Fields []TSEncodePlanField
 }
 

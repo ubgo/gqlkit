@@ -18,6 +18,12 @@ type TSInputsData struct {
 	// one InputEncodePlan per input type that reaches an encoder.
 	EncoderImports []string
 	Plans          []TSEncodePlan
+	// PlanType is the local name of the runtime InputEncodePlan type:
+	// "InputEncodePlan", or an alias when an input type has that name.
+	PlanType string
+	// PlanImport is the import specifier for it: the bare name, or
+	// "InputEncodePlan as <PlanType>" when aliased.
+	PlanImport string
 }
 
 // TSEncodePlan is the generated InputEncodePlan constant of one input type:
@@ -25,6 +31,7 @@ type TSInputsData struct {
 // rest as-is).
 type TSEncodePlan struct {
 	Name   string // e.g. "TodoFilterEncodePlan"
+	Input  string // the input type it encodes, e.g. "TodoFilter"
 	Fields []TSEncodePlanField
 }
 
@@ -48,7 +55,7 @@ func (g *Generator) generateInputTypes() error {
 		if !g.reachesEncoder(def.Name) {
 			continue
 		}
-		plan := TSEncodePlan{Name: def.Name + encodePlanSuffix}
+		plan := TSEncodePlan{Name: g.encodePlanName(def.Name), Input: def.Name}
 		for _, f := range emittedFields(def) {
 			if expr := g.argEncoderExpr(f.Type); expr != "" {
 				plan.Fields = append(plan.Fields, TSEncodePlanField{Field: f.Name, Expr: expr})
@@ -58,6 +65,11 @@ func (g *Generator) generateInputTypes() error {
 		data.Plans = append(data.Plans, plan)
 	}
 	data.EncoderImports = sortedKeys(encoders)
+	data.PlanType = g.encodePlanNames().planType
+	data.PlanImport = tsInputEncodePlan
+	if data.PlanType != tsInputEncodePlan {
+		data.PlanImport += " as " + data.PlanType
+	}
 
 	var buf bytes.Buffer
 	if err := g.templates.ExecuteTemplate(&buf, "ts_inputs.tmpl", data); err != nil {

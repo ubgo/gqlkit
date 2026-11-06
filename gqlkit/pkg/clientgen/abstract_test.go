@@ -1,7 +1,6 @@
 package clientgen
 
 import (
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -167,21 +166,113 @@ func TestAbstractTypesDecodeAndSelect(t *testing.T) {
 	}
 }
 
-// TestAbstractWrapperNameCollision pins the up-front error for a schema
-// type that already uses a wrapper's Go name.
-func TestAbstractWrapperNameCollision(t *testing.T) {
-	work := t.TempDir()
-	t.Chdir(work)
-	schemaPath := filepath.Join(work, "schema.graphql")
-	sdl := "interface Node { id: ID! } type NodeValue { x: Int } type T implements Node { id: ID! } type Query { n: Node v: NodeValue }"
-	if err := os.WriteFile(schemaPath, []byte(sdl), 0o644); err != nil {
-		t.Fatal(err)
+// TestDerivedNameCollisions covers schema types that already use a name the
+// generator derives by appending a suffix: an interface or union wrapper
+// <Name>Value (the Shopify Admin schema has union SubscriptionDiscount AND
+// object SubscriptionDiscountValue) and a selector constructor
+// New<Name>Fields. The derived name gets "_" appended, the schema type keeps
+// its own, and the SDK must compile and pass vet.
+func TestDerivedNameCollisions(t *testing.T) {
+	requireGoToolchain(t)
+	cases := []struct {
+		name string
+		sdl  string
+		// want are declarations that must appear in the given file.
+		want map[string][]string
+	}{
+		{
+			name: "union wrapper collides with object",
+			sdl: `type SubscriptionAppliedCodeDiscount { code: String }
+type SubscriptionManualDiscount { title: String }
+union SubscriptionDiscount = SubscriptionAppliedCodeDiscount | SubscriptionManualDiscount
+type SubscriptionDiscountValue { amount: Float }
+type Query { d: SubscriptionDiscount ds: [SubscriptionDiscount!]! v: SubscriptionDiscountValue }`,
+			want: map[string][]string{
+				"types/types.go": {
+					"type SubscriptionDiscountValue_ struct",
+					"type SubscriptionDiscountValue struct",
+					") IsSubscriptionDiscount() {}",
+				},
+				"queries/query_d.go":  {"types.SubscriptionDiscountValue_"},
+				"queries/query_ds.go": {"[]types.SubscriptionDiscountValue_"},
+				"queries/query_v.go":  {"types.SubscriptionDiscountValue"},
+			},
+		},
+		{
+			name: "interface wrapper collides with object",
+			sdl: `interface Node { id: ID! }
+type NodeValue { x: Int }
+type T implements Node { id: ID! }
+type Query { n: Node v: NodeValue }`,
+			want: map[string][]string{
+				"types/types.go":     {"type NodeValue_ struct", "type NodeValue struct"},
+				"queries/query_n.go": {"types.NodeValue_"},
+			},
+		},
+		{
+			name: "wrapper collides twice",
+			sdl: `interface Node { id: ID! }
+type NodeValue { x: Int }
+type NodeValue_ { y: Int }
+type T implements Node { id: ID! }
+type Query { n: Node v: NodeValue w: NodeValue_ }`,
+			want: map[string][]string{
+				"types/types.go": {"type NodeValue__ struct", "type NodeValue_ struct", "type NodeValue struct"},
+			},
+		},
+		{
+			name: "selector constructor collides with selector",
+			sdl: `type Todo { id: ID! }
+type NewTodo { id: ID! todo: Todo }
+union Item = Todo | NewTodo
+type Query { t: Todo n: NewTodo i: Item }`,
+			want: map[string][]string{
+				"fields/field_new_todo.go": {"type NewTodoFields struct", "func NewNewTodoFields("},
+				"fields/field_todo.go":     {"type TodoFields_ struct", "func NewTodoFields_("},
+				"fields/field_item.go":     {"OnTodo(selector func(*TodoFields_))"},
+				"queries/query_t.go":       {"fields.TodoFields_"},
+			},
+		},
 	}
-	g, err := New(&Config{SchemaPath: schemaPath, OutputDir: filepath.Join(work, "out"), PackageName: "c", ModulePath: "example.com/c"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := g.Generate(); !errors.Is(err, ErrGoNameCollision) {
-		t.Fatalf("Generate err = %v, want ErrGoNameCollision", err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			work := t.TempDir()
+			t.Chdir(work)
+			schemaPath := filepath.Join(work, "schema.graphql")
+			if err := os.WriteFile(schemaPath, []byte(tc.sdl), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			outDir := filepath.Join(work, "out")
+			g, err := New(&Config{SchemaPath: schemaPath, OutputDir: outDir, PackageName: "c", ModulePath: "example.com/c"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := g.Generate(); err != nil {
+				t.Fatalf("Generate: %v", err)
+			}
+			for file, decls := range tc.want {
+				src, err := os.ReadFile(filepath.Join(outDir, file))
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, d := range decls {
+					if !strings.Contains(string(src), d) {
+						t.Errorf("%s: missing %q", file, d)
+					}
+				}
+			}
+			if err := os.WriteFile(filepath.Join(outDir, "go.mod"), []byte("module example.com/c\n\ngo 1.24\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if out, err := goBuild(t, outDir, "./..."); err != nil {
+				t.Fatalf("generated SDK does not compile: %v\n%s", err, out)
+			}
+			vet := exec.Command("go", "vet", "./...")
+			vet.Dir = outDir
+			vet.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod")
+			if out, err := vet.CombinedOutput(); err != nil {
+				t.Fatalf("go vet: %v\n%s", err, out)
+			}
+		})
 	}
 }

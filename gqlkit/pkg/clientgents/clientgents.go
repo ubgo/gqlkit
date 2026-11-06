@@ -32,7 +32,8 @@ type Generator struct {
 	clientConfig *ClientConfig
 	tsTypeMap    TSTypeMap
 	templates    *template.Template
-	pruned       []string // result of the last prune, see PrunedFiles
+	pruned       []string   // result of the last prune, see PrunedFiles
+	planNames    *planNames // input encode-plan names, see encodePlanNames
 }
 
 // PrunedFiles returns the files the last Generate pruned (or, with

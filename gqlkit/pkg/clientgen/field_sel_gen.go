@@ -90,7 +90,7 @@ func (g *Generator) getSortedObjectTypeNames() []string {
 func (g *Generator) buildFieldSelectorData(def *ast.Definition) FieldSelectorData {
 	data := FieldSelectorData{
 		TypeName:     def.Name,
-		SelectorName: exportName(def.Name) + "Fields",
+		SelectorName: g.selectorName(def.Name),
 		Fields:       make([]FieldSelField, 0, len(def.Fields)),
 	}
 
@@ -106,7 +106,7 @@ func (g *Generator) buildFieldSelectorData(def *ast.Definition) FieldSelectorDat
 			data.Fragments = append(data.Fragments, FragmentSel{
 				MethodName: "On" + pt.GoName,
 				TypeName:   pt.TypeName,
-				Selector:   pt.GoName + "Fields",
+				Selector:   g.selectorName(pt.TypeName),
 			})
 		}
 	}
@@ -129,7 +129,7 @@ func (g *Generator) buildFieldSelectorData(def *ast.Definition) FieldSelectorDat
 			IsObject:   isObj,
 		}
 		if isObj {
-			f.NestedSelector = exportName(baseName) + "Fields"
+			f.NestedSelector = g.selectorName(baseName)
 		}
 		data.Fields = append(data.Fields, f)
 	}

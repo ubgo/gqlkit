@@ -200,7 +200,7 @@ func (g *Generator) namedTypeToGo(name string) string {
 	case ast.Object, ast.InputObject:
 		return exportName(def.Name)
 	case ast.Interface, ast.Union:
-		return abstractValueName(def.Name)
+		return g.abstractValueName(def.Name)
 	}
 
 	return goEmptyInterface
@@ -339,9 +339,6 @@ func sortedImports(set map[string]bool) []string {
 // them to TypeDef structs with Go field metadata, and writes types/types.go via
 // the types template. Interfaces get only a marker (no fields).
 func (g *Generator) generateTypes() error {
-	if err := g.checkAbstractNameCollisions(); err != nil {
-		return err
-	}
 	typeDefMap := make(map[string]TypeDef)
 	hasAbstract := false
 
@@ -356,7 +353,7 @@ func (g *Generator) generateTypes() error {
 			IsUnion:     def.Kind == ast.Union,
 		}
 		if isAbstractKind(def) {
-			typeDef.ValueName = abstractValueName(def.Name)
+			typeDef.ValueName = g.abstractValueName(def.Name)
 			typeDef.PossibleTypes = g.possibleTypes(def)
 			hasAbstract = true
 		} else {

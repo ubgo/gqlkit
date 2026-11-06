@@ -33,7 +33,7 @@ Or download a binary for any platform from [GitHub Releases](https://github.com/
 
 ```bash
 go install github.com/ubgo/gqlkit/gqlkit/cmd/gqlkit@latest   # newest release
-go install github.com/ubgo/gqlkit/gqlkit/cmd/gqlkit@v0.14.0  # pinned
+go install github.com/ubgo/gqlkit/gqlkit/cmd/gqlkit@v0.14.1  # pinned
 ```
 
 Releases consumable by Go are tagged in the path-prefixed form Go requires for a nested module (`gqlkit/v0.14.0`), starting at v0.11.0. The `gqlkit@vX.Y.Z` tags are what GitHub Releases and the install script use; both forms point at the same commits, and `gqlkit version` reports the module version it was built from either way.

@@ -2,6 +2,7 @@ package clientgents
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -21,8 +22,55 @@ const (
 )
 
 // encodePlanSuffix names the generated InputEncodePlan constant of an input
-// object type: TodoFilter → TodoFilterEncodePlan.
+// object type: TodoFilter → TodoFilterEncodePlan (see planNames for clashes).
 const encodePlanSuffix = "EncodePlan"
+
+// planNames holds the names inputs/index.ts declares or imports besides the
+// input interfaces, keyed by input type name. Computed once per run.
+//
+// Why: an input type can already use a derived name. inputs/index.ts holds
+// every input interface, every <Input>EncodePlan const and the
+// InputEncodePlan type import, and operation files import interfaces and
+// plans from it together, so input F (plan FEncodePlan) next to input
+// FEncodePlan, or an input named InputEncodePlan, broke tsc. Input names keep
+// their spelling; a derived name that is taken gets memberSuffix appended
+// until free (FEncodePlan_), claimed in input-name order. A schema with no
+// clash generates exactly what it did before.
+type planNames struct {
+	// plans maps an input type name to its plan constant name.
+	plans map[string]string
+	// planType is the local name of the runtime InputEncodePlan type in
+	// inputs/index.ts (aliased on import when an input type takes it).
+	planType string
+}
+
+// encodePlanNames returns the claimed plan names, computing them on first use.
+func (g *Generator) encodePlanNames() *planNames {
+	if g.planNames != nil {
+		return g.planNames
+	}
+	defs := g.generatedDefs(ast.InputObject)
+	inputs := make([]string, 0, len(defs))
+	for _, def := range defs {
+		inputs = append(inputs, def.Name)
+	}
+	sort.Strings(inputs)
+	namer := newMemberNamer(inputs)
+	pn := &planNames{plans: make(map[string]string, len(inputs)), planType: namer.name(tsInputEncodePlan)}
+	for _, in := range inputs {
+		pn.plans[in] = namer.name(in + encodePlanSuffix)
+	}
+	g.planNames = pn
+	return pn
+}
+
+// encodePlanName returns the plan constant name of an input type.
+func (g *Generator) encodePlanName(input string) string {
+	if n, ok := g.encodePlanNames().plans[input]; ok {
+		return n
+	}
+	return input + encodePlanSuffix
+}
 
 // Runtime codec types re-exported through builder/index.ts when a codec exists.
 const (
@@ -138,7 +186,7 @@ func (g *Generator) argEncoderExpr(t *ast.Type) string {
 		return fmt.Sprintf("{ scalar: %s, listDepth: %d }", enc, listDepth(t))
 	}
 	if def := g.schema.Types[name]; def != nil && def.Kind == ast.InputObject && g.reachesEncoder(name) {
-		return fmt.Sprintf("{ input: () => %s }", name+encodePlanSuffix)
+		return fmt.Sprintf("{ input: () => %s }", g.encodePlanName(name))
 	}
 	return ""
 }
@@ -152,7 +200,7 @@ func (g *Generator) codecImportsFor(ts []*ast.Type, encoders, plans map[string]b
 		if enc := g.encoderName(name); enc != "" {
 			encoders[enc] = true
 		} else if def := g.schema.Types[name]; def != nil && def.Kind == ast.InputObject && g.reachesEncoder(name) {
-			plans[name+encodePlanSuffix] = true
+			plans[g.encodePlanName(name)] = true
 		}
 	}
 }

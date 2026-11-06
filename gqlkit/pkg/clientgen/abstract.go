@@ -1,7 +1,6 @@
 package clientgen
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/vektah/gqlparser/v2/ast"
@@ -43,12 +42,6 @@ func isAbstractKind(def *ast.Definition) bool {
 	return def != nil && (def.Kind == ast.Interface || def.Kind == ast.Union)
 }
 
-// abstractValueName returns the Go name of the decoding wrapper for an
-// abstract GraphQL type name.
-func abstractValueName(name string) string {
-	return exportName(name) + abstractValueSuffix
-}
-
 // possibleTypes returns the concrete members of an abstract type sorted by
 // GraphQL name, so the generated switch and selector methods are stable.
 func (g *Generator) possibleTypes(def *ast.Definition) []PossibleType {
@@ -74,27 +67,4 @@ func (g *Generator) abstractMemberships(def *ast.Definition) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-// checkAbstractNameCollisions fails generation when a schema type already
-// uses the Go name a wrapper would take (interface Node + type NodeValue), so
-// the conflict is reported up front instead of as a "redeclared" compile
-// error in the generated SDK.
-func (g *Generator) checkAbstractNameCollisions() error {
-	goNames := map[string]string{}
-	for _, def := range g.schema.Types {
-		if isGeneratedDataType(def) {
-			goNames[exportName(def.Name)] = def.Name
-		}
-	}
-	for _, def := range g.schema.Types {
-		if !isAbstractKind(def) || !isGeneratedDataType(def) {
-			continue
-		}
-		if other, taken := goNames[abstractValueName(def.Name)]; taken {
-			return fmt.Errorf("%w: wrapper %s for %s %q collides with schema type %q",
-				ErrGoNameCollision, abstractValueName(def.Name), def.Kind, def.Name, other)
-		}
-	}
-	return nil
 }

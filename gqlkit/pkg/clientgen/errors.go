@@ -10,6 +10,10 @@ var (
 	ErrInvalidInputsConfig = errors.New("invalid inputs config")
 	// ErrGoNameCollision: two schema names would generate the same Go
 	// identifier.
+	//
+	// Deprecated: no longer returned. Since 0.14.1 a derived name that a
+	// schema type already uses gets "_" appended instead (see
+	// derived_names.go). Kept so code that references it still compiles.
 	ErrGoNameCollision = errors.New("generated Go name collision")
 	// ErrDryRunWithoutPrune: PruneDryRun only describes a prune.
 	ErrDryRunWithoutPrune = errors.New("--dry-run requires --prune")

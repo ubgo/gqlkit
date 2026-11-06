@@ -6,7 +6,7 @@ import type { {{ joinComma .EnumImports }} } from "{{ dirImport "enums" }}";
 import type { {{ joinComma .ScalarImports }} } from "{{ dirImport "scalars" }}";
 {{- end }}
 {{- if .Plans }}
-import type { InputEncodePlan } from "{{ dirImport "builder" }}";
+import type { {{ .PlanImport }} } from "{{ dirImport "builder" }}";
 {{- end }}
 {{- if .EncoderImports }}
 import { {{ joinComma .EncoderImports }} } from "{{ dirImport "scalars" }}";
@@ -24,8 +24,8 @@ export interface {{ $td.Name }} {
 {{- end }}
 {{- range .Plans }}
 
-/** Encodes {{ .Name }}'s codec-scalar fields when sent as a variable. */
-export const {{ .Name }}: InputEncodePlan = {
+/** Encodes {{ .Input }}'s codec-scalar fields when sent as a variable. */
+export const {{ .Name }}: {{ $.PlanType }} = {
 {{- range .Fields }}
   {{ .Field }}: {{ .Expr }},
 {{- end }}
