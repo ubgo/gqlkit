@@ -78,3 +78,10 @@ dist/
 
 # Watchman cookie files dropped in the repo root by file watchers.
 .watchman-cookie-*
+
+# lore
+.lore/lore.db.broken.*
+.lore/lore-cache.db
+.lore/lore-cache.db-shm
+.lore/lore-cache.db-wal
+.lore/lock
