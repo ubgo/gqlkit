@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-13T09:01:05.885Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "Standards pass (no any, named constants, doc comments) and input-space edge-case tests for gqlkit-sdl fetch/convert/write and mockapi resolvers.",
   "commitment": "accepted",
   "completed_at": "2026-10-13T09:01:05.885246000Z",
   "created_at": "2026-10-13T08:48:06.268339000Z",
+  "created_by": "act_afbe7ed1d969752697eebecaac20e9dc",
   "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "done",
   "tasklist_id": "tlt_01a1346fcb3c7845a13f840f3280f819",
   "title": "Code-standards pass + edge-case tests: gqlkit-sdl and mockapi",
-  "updated_at": "2026-10-13T09:01:05.885258000Z"
+  "updated_at": "2026-10-13T09:01:05.885258000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }

@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-13T09:09:32.839Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "docs/cli/*, docs/choosing/*, example-cli/, edits to docs/cli-reference.md, docs/recipes.md, example-go-chat/README.md",
   "commitment": "accepted",
   "completed_at": "2026-10-13T09:09:32.839876000Z",
   "created_at": "2026-10-13T08:54:47.617895000Z",
+  "created_by": "act_afbe7ed1d969752697eebecaac20e9dc",
   "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "done",
   "tasklist_id": "tlt_01a1346fcb3c7845a13f840f3280f819",
   "title": "Docs batch 2: CLI, config and choosing guides + example-cli scripts",
-  "updated_at": "2026-10-13T09:09:32.839889000Z"
+  "updated_at": "2026-10-13T09:09:32.839889000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }

@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-13T09:01:24.276Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "satl-code-standards pass on gqlkit/pkg/clientgents: type safety, named constants, why-comments, dead code; input-space test matrix through real Generate + tsc (kinds x nullability x list depth x binding shape x position x odd names).",
   "commitment": "accepted",
   "completed_at": "2026-10-13T09:01:24.276687000Z",
   "created_at": "2026-10-13T08:48:36.200325000Z",
+  "created_by": "act_afbe7ed1d969752697eebecaac20e9dc",
   "created_by_actor_id": "act_afbe7ed1d969752697eebecaac20e9dc",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "done",
   "tasklist_id": "tlt_01a1346fcb3c7845a13f840f3280f819",
   "title": "clientgents standards pass + edge-case test matrix",
-  "updated_at": "2026-10-13T09:01:24.276688000Z"
+  "updated_at": "2026-10-13T09:01:24.276688000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }
